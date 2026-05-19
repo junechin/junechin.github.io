@@ -1,0 +1,2490 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 应用成熟度评估 — 方法论介绍</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap');
+:root {
+  --color-bg: #000000;
+  --color-bg-card: #1A1A1A;
+  --color-bg-card-hover: #222222;
+  --color-text: #FFFFFF;
+  --color-text-secondary: #D0D0CE;
+  --color-text-muted: #A7A8AA;
+  --color-accent: #86BC25;
+  --color-accent-secondary: #00ABAB;
+  --color-border: rgba(255,255,255,0.12);
+  --color-progress: #86BC25;
+  --color-surface-elevated: #2A2A2A;
+  --font-cn: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-en: "Aptos", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "SF Mono", "Cascadia Code", "Consolas", monospace;
+  /* Spacing scale: 4pt base */
+  --space-1: 0.25rem; --space-2: 0.5rem; --space-3: 0.75rem; --space-4: 1rem;
+  --space-6: 1.5rem; --space-8: 2rem; --space-10: 2.5rem; --space-12: 3rem;
+  --space-16: 4rem; --space-20: 5rem; --space-24: 6rem;
+  /* Shadows */
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04);
+  --shadow-card-hover: 0 4px 20px rgba(0,0,0,0.4), 0 0 0 1px rgba(134,188,37,0.12);
+  --shadow-elevated: 0 8px 32px rgba(0,0,0,0.5);
+  /* Animation */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 400ms;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { scroll-behavior: smooth; scroll-snap-type: y mandatory; }
+
+/* Skip link for accessibility */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  padding: 0.75rem 1.5rem;
+  background: var(--color-accent);
+  color: var(--color-bg);
+  font-weight: 600;
+  font-size: 0.875rem;
+  border-radius: 0 0 8px 8px;
+  text-decoration: none;
+  transition: top var(--duration-fast) var(--ease-out-expo);
+}
+.skip-link:focus { top: 0; outline: 2px solid var(--color-text); outline-offset: 2px; }
+
+body {
+  font-family: var(--font-cn);
+  background: var(--color-bg);
+  color: var(--color-text);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.slide {
+  min-height: 100dvh;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--space-16) var(--space-24);
+  position: relative;
+}
+
+/* Subtle background texture */
+.slide::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 20% 40%, rgba(134,188,37,0.03) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 40% at 80% 60%, rgba(0,171,171,0.02) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+.slide > * { position: relative; z-index: 1; }
+
+.slide-number {
+  position: absolute;
+  bottom: 2rem;
+  right: 3rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  letter-spacing: 0.1em;
+}
+
+.slide-title {
+  font-size: 2.75rem;
+  font-weight: 700;
+  line-height: 1.25;
+  margin-bottom: 2rem;
+  color: var(--color-text);
+}
+
+.slide-subtitle {
+  font-size: 1.25rem;
+  font-weight: 400;
+  color: var(--color-text-muted);
+  margin-bottom: 3rem;
+  max-width: 100%;
+  line-height: 1.6;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+}
+
+.accent { color: var(--color-accent); }
+
+.tag {
+  display: inline-block;
+  padding: 0.35em 1em;
+  border: 1px solid var(--color-accent);
+  border-radius: 100px;
+  font-size: 0.8rem;
+  color: var(--color-accent);
+  letter-spacing: 0.05em;
+  margin-bottom: 1.5rem;
+}
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; }
+.grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1.25rem; }
+
+.card {
+  background: var(--color-bg-card);
+  border-radius: 12px;
+  padding: 2rem;
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-card);
+  transition: background var(--duration-fast) var(--ease-in-out),
+              border-color var(--duration-fast) var(--ease-in-out),
+              transform var(--duration-fast) var(--ease-out-expo),
+              box-shadow var(--duration-fast) var(--ease-in-out);
+  cursor: default;
+}
+
+.card:hover {
+  background: var(--color-bg-card-hover);
+  border-color: rgba(255,255,255,0.2);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.card:active {
+  transform: translateY(0) scale(0.995);
+  box-shadow: var(--shadow-card);
+}
+
+.card:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
+.card h3 { font-size: 1.15rem; margin-bottom: 0.75rem; color: var(--color-accent); font-weight: 600; }
+.card p  { font-size: 0.95rem; line-height: 1.6; color: var(--color-text-secondary); }
+
+/* Data table — HTML-based, not SVG */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  margin-top: 1rem;
+}
+
+.data-table thead th {
+  text-align: left;
+  padding: 0.6rem 0.75rem;
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+  border-bottom: 1px solid var(--color-border);
+  background: rgba(134, 188, 37, 0.06);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.data-table thead th:not(:first-child) { text-align: center; }
+
+.data-table tbody td {
+  padding: 0.55rem 0.75rem;
+  color: var(--color-text-secondary);
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  vertical-align: middle;
+}
+
+.data-table tbody td:not(:first-child) { text-align: center; }
+
+.data-table .level-badge {
+  display: inline-block;
+  padding: 0.15em 0.6em;
+  border-radius: 100px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-accent);
+  border: 1px solid var(--color-accent);
+}
+
+.data-table .maturity-segments {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+.data-table .maturity-seg {
+  width: 14px;
+  height: 8px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.1);
+}
+.data-table .maturity-seg.active {
+  background: var(--color-accent);
+}
+
+.nav-hint {
+  position: fixed;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  z-index: 10;
+  animation: fadeHint 5s forwards;
+}
+
+@keyframes fadeHint {
+  0%, 80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.fragment {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity var(--duration-slow) var(--ease-out-expo),
+              transform var(--duration-slow) var(--ease-out-expo);
+}
+.fragment.visible { opacity: 1; transform: translateY(0); }
+
+@media (prefers-reduced-motion: reduce) {
+  .fragment { opacity: 1; transform: none; transition: none; }
+  .fragment-delay-1, .fragment-delay-2, .fragment-delay-3 { transition-delay: 0s; }
+  .card { transition: none; }
+  .nav-hint { animation: none; opacity: 0; }
+  .slide::before { display: none; }
+}
+
+.fragment-delay-1 { transition-delay: 0.15s; }
+.fragment-delay-2 { transition-delay: 0.3s; }
+.fragment-delay-3 { transition-delay: 0.45s; }
+
+.progress-bar { position: fixed; top: 0; left: 0; width: 100%; height: 3px; z-index: 100; background: rgba(255,255,255,0.08); }
+.progress-fill { height: 100%; background: var(--color-accent); width: 0%; transition: width 0.3s ease; }
+
+.cta-button {
+  display: inline-block;
+  padding: 1rem 2.5rem;
+  border: 2px solid var(--color-accent);
+  border-radius: 8px;
+  color: var(--color-accent);
+  font-size: 1.2rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background var(--duration-fast) var(--ease-in-out),
+              color var(--duration-fast) var(--ease-in-out),
+              transform var(--duration-fast) var(--ease-out-expo),
+              box-shadow var(--duration-fast) var(--ease-in-out);
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cta-button:hover {
+  background: var(--color-accent);
+  color: var(--color-bg);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 28px rgba(134, 188, 37, 0.3);
+}
+
+.cta-button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
+.cta-button:active {
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 2px 12px rgba(134, 188, 37, 0.2);
+}
+
+/* ============================================================
+   Slide 3: Concept + Case Study Layout
+   ============================================================ */
+
+/* --- Concept cards (icon + text row layout) --- */
+.concept-card {
+  padding: 1.25rem;
+  min-height: 0;
+}
+.concept-card .concept-section-label {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.6rem;
+  font-weight: 600;
+}
+.concept-card .concept-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+}
+.concept-card .concept-row-icon {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.concept-card .concept-row-icon svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+.concept-card .concept-row-icon--red {
+  background: rgba(230, 92, 0, 0.15);
+}
+.concept-card .concept-row-icon--green {
+  background: rgba(134, 188, 37, 0.15);
+}
+.concept-card .concept-row-text {
+  flex: 1;
+}
+.concept-card .concept-row-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+.concept-card .concept-row-title--red {
+  color: #E65C00;
+}
+.concept-card .concept-row-title--green {
+  color: var(--color-accent);
+}
+.concept-card .concept-row-desc {
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+/* Card-level theme overrides */
+.concept-card--legacy {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+.concept-card--ours {
+  border-color: rgba(134, 188, 37, 0.2);
+  background: rgba(134, 188, 37, 0.03);
+}
+
+/* --- Case connector --- */
+.case-connector {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+  padding: 0 1rem;
+}
+.case-connector .connector-line {
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+.case-connector .connector-label {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+/* --- Case cards --- */
+.case-card {
+  padding: 1.25rem;
+}
+.case-card--positive {
+  border-color: rgba(134, 188, 37, 0.35);
+}
+.case-card--warning {
+  border-color: rgba(230, 92, 0, 0.5);
+}
+
+.case-card .case-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.case-card .case-icon svg {
+  width: 40px;
+  height: 40px;
+  display: block;
+}
+.case-card .case-tag {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  letter-spacing: 0.02em;
+}
+
+.case-card .case-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.case-card .feature-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.75rem 0;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+.case-card .feature-list li {
+  position: relative;
+  padding-left: 1rem;
+  margin-bottom: 0.2rem;
+}
+.case-card .feature-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--color-text-muted);
+}
+
+.case-card .case-divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 0.75rem 0;
+}
+
+/* Level bar track */
+.level-track {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+.level-track-label {
+  font-size: 0.8rem;
+  width: 75px;
+  text-align: right;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+.level-bar {
+  display: flex;
+  gap: 3px;
+  flex: 1;
+}
+.level-bar .segment {
+  flex: 1;
+  height: 7px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.level-bar .segment.active {
+  background: var(--color-accent);
+}
+.level-bar .segment.active.warning {
+  background: #E65C00;
+}
+.level-value {
+  font-size: 0.8rem;
+  font-family: var(--font-mono);
+  width: 32px;
+  color: var(--color-text);
+  flex-shrink: 0;
+}
+
+.case-card .case-conclusion {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  margin-top: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* SVG checkmark & warning icons inside case cards */
+.icon-check svg, .icon-warning svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+
+/* ============================================================
+   Sub-item rows for pg03 case cards (Jennifer feedback)
+   ============================================================ */
+
+/* Needs label above sub-item list */
+.needs-label {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+.needs-label--green { color: var(--color-accent); }
+.needs-label--orange { color: #E65C00; }
+
+/* Sub-item row: label + mini bar + badge */
+.sub-item-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.4rem;
+}
+
+.sub-item-row .sub-item-label {
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+  width: 90px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.sub-item-row .sub-item-bar {
+  display: flex;
+  gap: 3px;
+  flex: 1;
+  position: relative;
+}
+
+.sub-item-row .sub-item-segment {
+  flex: 1;
+  height: 7px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.sub-item-row .sub-item-segment.active-green {
+  background: var(--color-accent);
+}
+
+.sub-item-row .sub-item-segment.at-risk {
+  background: #E65C00;
+}
+
+/* Surplus zone: lighter green for capability above need */
+.sub-item-row .sub-item-segment.surplus {
+  background: color-mix(in srgb, var(--color-accent) 30%, transparent);
+}
+
+/* Gap zone: lighter orange for unmet need above current capability */
+.sub-item-row .sub-item-segment.gap {
+  background: color-mix(in srgb, #E65C00 22%, transparent);
+}
+
+/* Demand baseline: white vertical line marking need level position.
+   --need-level (1-5) sets horizontal position.
+   Bar has 5 flex segments with 3px gaps; we approximate position by 20%/level. */
+.sub-item-row .sub-item-bar .demand-line {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  background: rgba(255,255,255,0.95);
+  border-radius: 1px;
+  pointer-events: none;
+  left: calc(var(--need-level) * 20% - 1px);
+  box-shadow: 0 0 2px rgba(0,0,0,0.4);
+}
+
+.sub-item-row .sub-item-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  height: 22px;
+  padding: 0 0.45em;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+  letter-spacing: -0.01em;
+}
+
+.sub-item-row .sub-item-badge.green {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+}
+
+.sub-item-row .sub-item-badge.orange {
+  color: #E65C00;
+  background: color-mix(in srgb, #E65C00 12%, transparent);
+  border: 1px solid color-mix(in srgb, #E65C00 30%, transparent);
+}
+
+/* Recommendation line */
+.case-recommendation {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  margin-top: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.case-recommendation svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   Institution profile area for pg03 case cards (v5)
+   ============================================================ */
+
+/* Header row: bank icon + complexity tag + institution name on one line */
+.inst-header-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+}
+
+.inst-header-row .inst-bank-icon {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+}
+
+.inst-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.18em 0.7em;
+  border-radius: 100px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.inst-tag--positive {
+  color: var(--color-accent);
+  border: 1px solid var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+}
+
+.inst-tag--warning {
+  color: var(--color-accent-secondary);
+  border: 1px solid var(--color-accent-secondary);
+  background: color-mix(in srgb, var(--color-accent-secondary) 8%, transparent);
+}
+
+.inst-name {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--color-text);
+  line-height: 1.2;
+}
+
+/* Three attribute rows: small icon + bold label + description */
+.inst-attrs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.attr-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.attr-row .attr-icon {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+}
+
+.attr-row .attr-label {
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  width: 36px;
+  flex-shrink: 0;
+}
+
+.attr-row .attr-desc {
+  color: var(--color-text-secondary);
+}
+
+/* Gap analysis card for pg07 */
+.gap-card {
+  padding: 1.5rem;
+  margin-top: 1.5rem;
+  border-color: var(--color-accent);
+}
+
+.gap-card .gap-card-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-accent);
+  margin-bottom: 0.75rem;
+}
+
+.gap-card .gap-intro {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+  margin-bottom: 0.75rem;
+}
+
+.gap-card .gap-example-row {
+  display: flex;
+  gap: 2rem;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.gap-card .gap-example-row .gap-example {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+}
+
+.gap-card .gap-example-row .gap-example .inst-name {
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 0.35rem;
+}
+
+.gap-card .gap-example-row .gap-example .gap-metrics {
+  display: flex;
+  gap: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.gap-card .gap-example-row .gap-example .gap-metrics .metric {
+  padding: 0.15em 0.5em;
+  border-radius: 4px;
+}
+
+.gap-card .gap-example-row .gap-example .gap-metrics .metric.needs {
+  color: var(--color-accent-secondary);
+  background: color-mix(in srgb, var(--color-accent-secondary) 12%, transparent);
+}
+
+.gap-card .gap-example-row .gap-example .gap-metrics .metric.current {
+  color: var(--color-text);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.gap-card .gap-example-row .gap-example .gap-conclusion {
+  margin-top: 0.4rem;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.gap-card .gap-example-row .gap-example .gap-conclusion.green {
+  color: var(--color-accent);
+}
+
+.gap-card .gap-example-row .gap-example .gap-conclusion.orange {
+  color: #E65C00;
+}
+
+/* Slide navigation dots */
+.slide-nav {
+  position: fixed;
+  right: 1.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.slide-nav-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.2);
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: background var(--duration-fast) var(--ease-in-out),
+              transform var(--duration-fast) var(--ease-out-expo);
+}
+
+.slide-nav-dot:hover {
+  background: rgba(255,255,255,0.5);
+  transform: scale(1.3);
+}
+
+.slide-nav-dot.active {
+  background: var(--color-accent);
+  transform: scale(1.2);
+}
+
+.slide-nav-dot:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Nav hint dismissible */
+.nav-hint {
+  position: fixed;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  z-index: 10;
+  animation: fadeHint 5s forwards;
+  pointer-events: none;
+}
+
+/* Responsive breakpoints */
+@media (max-width: 1024px) {
+  .slide { padding: var(--space-12) var(--space-10); }
+  .slide-title { font-size: 2.25rem; }
+  .slide-subtitle { font-size: 1.1rem; white-space: normal; overflow: visible; text-overflow: unset; }
+  .grid-4 { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 768px) {
+  .slide { padding: var(--space-8) var(--space-4); min-height: 100svh; }
+  .slide-title { font-size: 1.75rem !important; }
+  .slide-subtitle { font-size: 1rem !important; }
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  svg { height: auto !important; }
+  h1.slide-title { font-size: 2rem !important; }
+  .slide-nav { display: none; }
+  .card { padding: 1.5rem; }
+  .case-connector > svg { display: none; }
+  .case-connector .connector-line { display: none; }
+  .case-connector { justify-content: center; }
+}
+
+@media (max-width: 375px) {
+  .slide { padding: var(--space-6) var(--space-3); }
+  .slide-title { font-size: 1.5rem !important; }
+  .card { padding: 1.25rem; }
+}
+
+/* ============================================================
+   Slide 4: Use Case Walkthrough — Comparison Layout
+   ============================================================ */
+
+/* Case context (replaces origin card) */
+.case-context {
+  padding: 1rem 1.5rem;
+  background: rgba(134, 188, 37, 0.04);
+  border-left: 3px solid var(--color-accent);
+  border-radius: 4px;
+}
+.case-context-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-accent);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.case-context-text {
+  font-size: 0.95rem;
+  color: var(--color-text-secondary);
+  line-height: 1.65;
+  margin-top: 0.5rem;
+}
+
+/* Fork transition text (replaces diamond node) */
+.fork-transition-text {
+  font-size: 0.95rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+  margin: 1.5rem 0 1rem;
+}
+
+/* Fork branches grid */
+.fork-branches {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+/* Path cards */
+.path-card {
+  padding: 1.5rem;
+  position: relative;
+}
+.path-card--blind {
+  border: 1px solid rgba(230, 92, 0, 0.4);
+  border-top: 3px solid #E65C00;
+  border-radius: 12px;
+}
+.path-card--guided {
+  border: 1px solid rgba(134, 188, 37, 0.4);
+  border-top: 3px solid var(--color-accent);
+  border-radius: 12px;
+}
+
+/* Path header */
+.path-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.path-header svg {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+.path-header .path-title {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+/* Timeline — simplified (no icons, no connectors) */
+.path-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.timeline-node {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+.stage-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 24px;
+  padding: 0 0.5em;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--badge-color);
+  background: color-mix(in srgb, var(--badge-color) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--badge-color) 30%, transparent);
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+}
+.timeline-node .node-desc {
+  font-size: 0.88rem;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Result metric */
+.result-metric {
+  text-align: center;
+  padding: 1.25rem 1rem 1rem;
+  margin-top: 1rem;
+  border-radius: 8px;
+}
+.result-metric--blind {
+  background: rgba(230, 92, 0, 0.06);
+  border: 1px solid rgba(230, 92, 0, 0.15);
+}
+.result-metric--guided {
+  background: rgba(134, 188, 37, 0.06);
+  border: 1px solid rgba(134, 188, 37, 0.15);
+}
+.result-metric .amount {
+  font-size: 2.25rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+.result-metric .duration {
+  font-size: 0.95rem;
+  color: var(--color-text-secondary);
+  margin-top: 0.35rem;
+}
+.result-metric .impact-note {
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+  font-weight: 600;
+}
+
+/* Conclusion banner */
+.conclusion-banner {
+  margin-top: 1.5rem;
+  padding: 1.25rem 1.75rem;
+  background: rgba(134, 188, 37, 0.06);
+  border: 1px solid rgba(134, 188, 37, 0.25);
+  border-radius: 10px;
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+.conclusion-banner svg {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.conclusion-banner p {
+  font-size: 0.95rem;
+  color: var(--color-text);
+  line-height: 1.7;
+}
+.conclusion-banner .highlight {
+  display: inline;
+  color: var(--color-accent);
+  font-weight: 600;
+  background: rgba(134, 188, 37, 0.12);
+  padding: 0.1em 0.4em;
+  border-radius: 4px;
+}
+
+/* Slide 4 specific: content-heavy slide, start from top instead of centering */
+#s4 {
+  justify-content: flex-start;
+  padding-top: var(--space-12);
+  padding-bottom: var(--space-12);
+}
+
+/* Slide 7 specific: content-heavy, two-row layout */
+#s7 {
+  justify-content: flex-start;
+  padding-top: var(--space-10);
+  padding-bottom: var(--space-12);
+}
+
+/* Row 1: staircase + anchor card side by side */
+#s7 .s7-top-row {
+  gap: 2rem;
+  align-items: stretch;
+}
+
+#s7 .s7-top-row > div {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+#s7 .s7-anchor-card {
+  padding: 0.9rem 1.25rem;
+  font-size: 0.82rem;
+  line-height: 1.7;
+}
+
+#s7 .s7-anchor-card .anchor-title {
+  font-weight: 700;
+  color: var(--color-accent);
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+}
+
+#s7 .s7-anchor-card .anchor-level-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-bottom: 0.35rem;
+  line-height: 1.7;
+  font-size: 0.85rem;
+}
+
+#s7 .s7-anchor-card .anchor-level-tag {
+  font-weight: 600;
+  width: 80px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+#s7 .s7-anchor-card .anchor-level {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  margin-right: 0.4rem;
+}
+
+#s7 .s7-anchor-card .anchor-level .level-name {
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+
+#s7 .s7-anchor-card .anchor-level .level-desc {
+  color: var(--color-text-secondary);
+  font-size: 0.82rem;
+}
+
+#s7 .s7-anchor-card .anchor-separator {
+  color: var(--color-text-muted);
+  margin: 0 0.3rem;
+  user-select: none;
+}
+
+#s7 .s7-staircase-legend {
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-top: 0.2rem;
+}
+
+/* Responsive for slide 7 */
+@media (max-width: 1024px) {
+  #s7 .s7-top-row { grid-template-columns: 1fr !important; }
+}
+
+/* Responsive for slide 4 */
+@media (max-width: 768px) {
+  #s4 { padding-top: var(--space-8); padding-bottom: var(--space-8); }
+  .fork-branches { grid-template-columns: 1fr !important; }
+  .result-metric .amount { font-size: 1.5rem; }
+  .conclusion-banner { flex-direction: column; text-align: center; }
+}
+/* ============================================================
+   Slide 5: 6:4 layout + mini flow diagram
+   ============================================================ */
+
+#s5 .grid-2 {
+  grid-template-columns: 1fr 1fr;
+  align-items: stretch;
+}
+
+#s5 .grid-2 > div:first-child {
+  height: 536px;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-card);
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  padding: 1.25rem;
+  box-sizing: border-box;
+}
+
+/* Mapping layer panel */
+.mapping-panel {
+  height: 536px;
+  display: flex;
+  flex-direction: column;
+  padding: 1.25rem;
+  background: var(--color-bg-card);
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+}
+
+.mapping-panel-header {
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.mapping-panel-title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--color-accent);
+  margin-bottom: 0.25rem;
+}
+
+.mapping-panel-subtitle {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+/* Rule table (replaces mapping-rule-row) */
+.rule-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.rule-table thead th {
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.rule-table thead th:first-child {
+  color: var(--color-accent-secondary);
+  background: rgba(0,171,171,0.05);
+}
+
+.rule-table thead th:nth-child(2) {
+  color: var(--color-accent);
+  background: rgba(134,188,37,0.05);
+}
+
+.rule-table thead th:nth-child(3) {
+  color: var(--color-accent);
+  background: rgba(134,188,37,0.05);
+  text-align: right;
+}
+
+.rule-table tbody td {
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  vertical-align: middle;
+}
+
+.rule-table tbody td:last-child {
+  text-align: right;
+}
+
+.rule-table .rule-tag {
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  text-align: center;
+  padding: 0.3em 0.5em;
+  white-space: nowrap;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+
+.mapping-rule-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.rule-table {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.rule-table thead {
+  flex-shrink: 0;
+}
+
+.rule-table tbody {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.rule-table tbody tr {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  align-items: center;
+}
+
+.rule-table thead tr {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+}
+
+/* Deprecated: mapping-rule-row replaced by .rule-table */
+
+/* Rule tags and badges (used in rule-table) */
+.rule-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3em 0.9em;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.rule-tag--condition {
+  background: rgba(0,171,171,0.12);
+  color: var(--color-accent-secondary);
+  border: 1px solid rgba(0,171,171,0.3);
+}
+
+.rule-tag--result {
+  background: rgba(134,188,37,0.12);
+  color: var(--color-accent);
+  border: 1px solid rgba(134,188,37,0.3);
+}
+
+.rule-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.15em 0.55em;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  background: rgba(134,188,37,0.08);
+  color: var(--color-accent);
+  min-width: 3.5em;
+  text-align: center;
+  white-space: nowrap;
+}
+</style>
+</head>
+<body>
+
+<a href="#s1" class="skip-link">跳转到主要内容</a>
+
+<div class="slide-nav" id="slideNav" role="navigation" aria-label="幻灯片导航"></div>
+
+<div class="nav-hint" aria-hidden="true">使用方向键或滚动浏览</div>
+
+<div class="progress-bar" role="progressbar" aria-label="浏览进度" aria-valuemin="0" aria-valuemax="100"><div class="progress-fill" id="progress"></div></div>
+
+<!-- Slide 1: Cover -->
+<section class="slide" id="s1">
+  <span class="slide-number">01 / 10</span>
+  <div class="tag">服务介绍</div>
+  <h1 class="slide-title" style="font-size:3.5rem;">
+    AI 应用成熟度评估<br>
+    <span class="accent">反洗钱 / 反恐融资 / 反扩散融资 / 制裁风险管理</span>
+  </h1>
+  <p class="slide-subtitle" style="font-size:1.35rem;">精准定位 AI 就绪差距，明确演进路径，避免盲目投入</p>
+</section>
+
+<!-- Slide 2: Pain Points -->
+<section class="slide" id="s2">
+  <span class="slide-number">02 / 10</span>
+  <div class="tag">问题</div>
+  <h2 class="slide-title">合规 AI 落地的三大困境</h2>
+  <p class="slide-subtitle">机构在推动 AI 应用于反洗钱与制裁合规时，普遍面临三个核心障碍</p>
+  <div class="grid-3">
+    <div class="card fragment">
+      <svg width="48" height="48" viewBox="0 0 48 48" fill="none" style="margin-bottom:1rem;">
+        <circle cx="24" cy="14" r="6" stroke="var(--color-accent)" stroke-width="2" fill="none"/>
+        <circle cx="24" cy="24" r="2" fill="var(--color-accent)"/>
+        <circle cx="24" cy="32" r="2" fill="var(--color-text-muted)"/>
+        <path d="M16 40 Q24 30 32 40" stroke="var(--color-text-muted)" stroke-width="1.5" fill="none"/>
+      </svg>
+      <h3>基础不明</h3>
+      <p>不清楚自身数据、技术、人才基础能否支撑 Agentic AI 的引入，缺乏系统的自我诊断工具</p>
+    </div>
+    <div class="card fragment fragment-delay-1">
+      <svg width="48" height="48" viewBox="0 0 48 48" fill="none" style="margin-bottom:1rem;">
+        <!-- Fork in the road: path splits into multiple uncertain directions -->
+        <path d="M24 40 L24 24" stroke="var(--color-text-muted)" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M24 24 L14 10" stroke="var(--color-text-muted)" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="3 3"/>
+        <path d="M24 24 L24 10" stroke="var(--color-text-muted)" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="3 3"/>
+        <path d="M24 24 L34 10" stroke="var(--color-text-muted)" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="3 3"/>
+        <!-- Question mark at the fork point -->
+        <circle cx="24" cy="24" r="4" fill="var(--color-bg-card)" stroke="var(--color-accent)" stroke-width="1.5"/>
+        <text x="24" y="27" text-anchor="middle" fill="var(--color-accent)" font-size="7" font-weight="700">?</text>
+      </svg>
+      <h3>缺乏规划</h3>
+      <p>对 AI 合规落地缺乏整体思路与规划，没有清晰的实施路径和阶段性目标，不知从何入手</p>
+    </div>
+    <div class="card fragment fragment-delay-2">
+      <svg width="48" height="48" viewBox="0 0 48 48" fill="none" style="margin-bottom:1rem;">
+        <circle cx="24" cy="24" r="16" stroke="var(--color-text-muted)" stroke-width="1.5" fill="none"/>
+        <circle cx="24" cy="24" r="8" stroke="var(--color-accent)" stroke-width="2" fill="none"/>
+        <line x1="24" y1="24" x2="28" y2="20" stroke="var(--color-accent)" stroke-width="2"/>
+        <circle cx="30" cy="18" r="3" fill="var(--color-accent)"/>
+      </svg>
+      <h3>场景难选</h3>
+      <p>面对众多 AI 应用场景（交易监控、名单筛查、尽职调查等），无从判断哪些场景应优先切入，容易盲目投入</p>
+    </div>
+  </div>
+  <p style="text-align:center;font-size:0.8rem;color:var(--color-text-muted);margin-top:1rem;">注：本文中 <strong>Agentic AI</strong> 指具备自主多步骤推理、工具调用与反馈闭环能力的 AI 系统，区别于传统规则引擎和单一预测模型。</p>
+</section>
+
+<!-- Slide 3: Core Philosophy -->
+<section class="slide" id="s3">
+  <span class="slide-number">03 / 10</span>
+  <div class="tag">理念</div>
+  <h2 class="slide-title">成熟度 = 能力相对于需求的匹配度</h2>
+  <p class="slide-subtitle">"成熟"不是 AI 能力的绝对值，而是能力与合规业务需求水位的匹配程度。同一套 AI 配置，在业务复杂度不同的机构可能对应完全不同的成熟度等级。</p>
+
+<!-- Concept Layer: Icon + Text Row -->
+  <div class="grid-2" style="gap: 1.5rem;">
+    <!-- Left: Traditional View -->
+    <div class="card concept-card concept-card--legacy fragment">
+      <div class="concept-section-label">传统视角</div>
+      <div class="concept-row">
+        <div class="concept-row-icon concept-row-icon--red">
+          <svg viewBox="0 0 18 18" fill="none" aria-hidden="true">
+            <rect x="2" y="3" width="14" height="12" rx="2" stroke="#E65C00" stroke-width="1.5" fill="none"/>
+            <line x1="9" y1="8" x2="9" y2="12" stroke="#E65C00" stroke-width="1.5" stroke-linecap="round"/>
+            <circle cx="9" cy="5.5" r="1" fill="#E65C00"/>
+          </svg>
+        </div>
+        <div class="concept-row-text">
+          <div class="concept-row-title concept-row-title--red">一刀切</div>
+          <div class="concept-row-desc">所有机构使用同一套 AI 标准，不考虑业务规模、风险敞口和合规需求的差异</div>
+        </div>
+      </div>
+    </div>
+    <!-- Right: Our View -->
+    <div class="card concept-card concept-card--ours fragment fragment-delay-1">
+      <div class="concept-section-label">我们的视角</div>
+      <div class="concept-row">
+        <div class="concept-row-icon concept-row-icon--green">
+          <svg viewBox="0 0 18 18" fill="none" aria-hidden="true">
+            <circle cx="7" cy="9" r="5" stroke="var(--color-accent)" stroke-width="1.5" fill="none"/>
+            <circle cx="11" cy="9" r="5" stroke="var(--color-accent)" stroke-width="1.5" fill="none"/>
+          </svg>
+        </div>
+        <div class="concept-row-text">
+          <div class="concept-row-title concept-row-title--green">动态匹配</div>
+          <div class="concept-row-desc">AI 能力与合规风险防控需求双向衡量，匹配度决定成熟度等级</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Connector -->
+	  <div class="case-connector fragment fragment-delay-1">
+	    <div class="connector-line"></div>
+	    <span class="connector-label">案例对比</span>
+	    <div class="connector-line"></div>
+	  </div>
+<!-- Case Study Layer -->
+  <div class="grid-2" style="gap: 1.5rem;">
+    <!-- Case 1: City Commercial Bank -->
+    <div class="card case-card case-card--warning fragment fragment-delay-2">
+      <div class="inst-header-row">
+        <svg class="inst-bank-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M3 10 L12 4 L21 10" stroke="#00ABAB" stroke-width="1.5" fill="none" stroke-linejoin="round"/>
+          <rect x="4" y="10" width="16" height="10" stroke="#00ABAB" stroke-width="1.5" fill="none"/>
+          <line x1="8" y1="20" x2="8" y2="14" stroke="#00ABAB" stroke-width="1"/>
+          <line x1="12" y1="20" x2="12" y2="14" stroke="#00ABAB" stroke-width="1"/>
+          <line x1="16" y1="20" x2="16" y2="14" stroke="#00ABAB" stroke-width="1"/>
+        </svg>
+        <span class="inst-tag inst-tag--warning">中复杂度</span>
+        <span class="inst-name">城市商业银行</span>
+      </div>
+      <div class="inst-attrs">
+        <div class="attr-row">
+          <svg class="attr-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <circle cx="8" cy="8" r="6" stroke="#00ABAB" stroke-width="1.2" fill="none"/>
+            <path d="M5 5 L8 9 L11 5" stroke="#00ABAB" stroke-width="1" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            <line x1="6" y1="9" x2="10" y2="9" stroke="#00ABAB" stroke-width="1" stroke-linecap="round"/>
+            <line x1="6" y1="11" x2="10" y2="11" stroke="#00ABAB" stroke-width="1" stroke-linecap="round"/>
+          </svg>
+          <span class="attr-label">交易</span>
+          <span class="attr-desc">月均 30-80万笔 · 省内为主+少量跨省</span>
+        </div>
+        <div class="attr-row">
+          <svg class="attr-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <circle cx="8" cy="5.5" r="2.5" stroke="#00ABAB" stroke-width="1.2" fill="none"/>
+            <path d="M3 14 Q3 9.5 8 9.5 Q13 9.5 13 14" stroke="#00ABAB" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+          </svg>
+          <span class="attr-label">客户</span>
+          <span class="attr-desc">零售:对公 ≈ 6:4 · 含部分 PEP 客户</span>
+        </div>
+        <div class="attr-row">
+          <svg class="attr-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <circle cx="8" cy="8" r="6" stroke="#00ABAB" stroke-width="1.2" fill="none"/>
+            <ellipse cx="8" cy="8" rx="3" ry="6" stroke="#00ABAB" stroke-width="1" fill="none"/>
+            <line x1="2" y1="8" x2="14" y2="8" stroke="#00ABAB" stroke-width="1"/>
+          </svg>
+          <span class="attr-label">监管</span>
+          <span class="attr-desc">本地监管 + 外币业务涉及外汇局要求</span>
+        </div>
+      </div>
+      <div class="case-divider"></div>
+      <div class="needs-label needs-label--orange">各域需求 L2-L3 · AI 能力现状</div>
+
+      <!-- Sub-item: 客户身份核实 (need=L2, current=L2 → match) -->
+      <div class="sub-item-row">
+        <span class="sub-item-label">客户身份核实</span>
+        <div class="sub-item-bar">
+          <div class="sub-item-segment active-green"></div>
+          <div class="sub-item-segment active-green"></div>
+          <div class="sub-item-segment"></div>
+          <div class="sub-item-segment"></div>
+          <div class="sub-item-segment"></div>
+          <div class="demand-line" style="--need-level: 2;"></div>
+        </div>
+        <span class="sub-item-badge green">L2→L2</span>
+      </div>
+
+      <!-- Sub-item: 交易监控 (need=L3, current=L2 → gap -1) -->
+	      <div class="sub-item-row">
+	        <span class="sub-item-label">交易监控</span>
+	        <div class="sub-item-bar">
+	          <div class="sub-item-segment at-risk"></div>
+	          <div class="sub-item-segment at-risk"></div>
+	          <div class="sub-item-segment gap"></div>
+	          <div class="sub-item-segment"></div>
+	          <div class="sub-item-segment"></div>
+	          <div class="demand-line" style="--need-level: 3;"></div>
+	        </div>
+	        <span class="sub-item-badge orange">L3→L2</span>
+	      </div>
+
+	      <!-- Sub-item: 可疑交易分析 (need=L3, current=L2 → gap -1) -->
+	      <div class="sub-item-row">
+	        <span class="sub-item-label">可疑交易分析</span>
+	        <div class="sub-item-bar">
+	          <div class="sub-item-segment at-risk"></div>
+	          <div class="sub-item-segment at-risk"></div>
+	          <div class="sub-item-segment gap"></div>
+	          <div class="sub-item-segment"></div>
+	          <div class="sub-item-segment"></div>
+	          <div class="demand-line" style="--need-level: 3;"></div>
+	        </div>
+	        <span class="sub-item-badge orange">L3→L2</span>
+	      </div>
+
+	      <!-- Sub-item: 名单筛查 (need=L2, current=L3 → surplus +1) -->
+      <div class="sub-item-row">
+        <span class="sub-item-label">名单筛查</span>
+        <div class="sub-item-bar">
+          <div class="sub-item-segment active-green"></div>
+          <div class="sub-item-segment active-green"></div>
+          <div class="sub-item-segment surplus"></div>
+          <div class="sub-item-segment"></div>
+          <div class="sub-item-segment"></div>
+          <div class="demand-line" style="--need-level: 2;"></div>
+        </div>
+        <span class="sub-item-badge green">L3→L2</span>
+      </div>
+
+      <!-- Sub-item: 尽职调查 (need=L3, current=L1 → gap -2) -->
+	      <div class="sub-item-row">
+	        <span class="sub-item-label">尽职调查</span>
+	        <div class="sub-item-bar">
+	          <div class="sub-item-segment at-risk"></div>
+	          <div class="sub-item-segment gap"></div>
+	          <div class="sub-item-segment gap"></div>
+	          <div class="sub-item-segment"></div>
+	          <div class="sub-item-segment"></div>
+	          <div class="demand-line" style="--need-level: 3;"></div>
+	        </div>
+	        <span class="sub-item-badge orange">L3→L1</span>
+	      </div>
+
+	      <div class="case-recommendation">
+        <span>
+          <svg viewBox="0 0 14 14" fill="none" aria-hidden="true">
+            <path d="M7 2 L13 12 L1 12 Z" stroke="#E65C00" stroke-width="1.2" fill="none" stroke-linejoin="round"/>
+            <line x1="7" y1="6" x2="7" y2="9" stroke="#E65C00" stroke-width="1.2" stroke-linecap="round"/>
+            <circle cx="7" cy="11" r="0.5" fill="#E65C00"/>
+          </svg>
+        </span>
+        <span>名单筛查能力已超出需求，尽职调查差距最大（-2），建议优先提升尽调能力并补齐交易监控、可疑交易分析短板</span>
+      </div>
+    </div>
+
+    <!-- Case 2: Global Bank -->
+    <div class="card case-card case-card--warning fragment fragment-delay-3">
+      <div class="inst-header-row">
+        <svg class="inst-bank-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M3 10 L12 4 L21 10" stroke="#00ABAB" stroke-width="1.5" fill="none" stroke-linejoin="round"/>
+          <rect x="4" y="10" width="16" height="10" stroke="#00ABAB" stroke-width="1.5" fill="none"/>
+          <line x1="8" y1="20" x2="8" y2="14" stroke="#00ABAB" stroke-width="1"/>
+          <line x1="12" y1="20" x2="12" y2="14" stroke="#00ABAB" stroke-width="1"/>
+          <line x1="16" y1="20" x2="16" y2="14" stroke="#00ABAB" stroke-width="1"/>
+        </svg>
+        <span class="inst-tag inst-tag--warning">高复杂度</span>
+        <span class="inst-name">大型商业银行</span>
+      </div>
+      <div class="inst-attrs">
+        <div class="attr-row">
+          <svg class="attr-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <circle cx="8" cy="8" r="6" stroke="#00ABAB" stroke-width="1.2" fill="none"/>
+            <path d="M5 5 L8 9 L11 5" stroke="#00ABAB" stroke-width="1" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            <line x1="6" y1="9" x2="10" y2="9" stroke="#00ABAB" stroke-width="1" stroke-linecap="round"/>
+            <line x1="6" y1="11" x2="10" y2="11" stroke="#00ABAB" stroke-width="1" stroke-linecap="round"/>
+          </svg>
+          <span class="attr-label">交易</span>
+          <span class="attr-desc">月均 &gt;100万笔 · 多币种跨境</span>
+        </div>
+        <div class="attr-row">
+          <svg class="attr-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <circle cx="8" cy="5.5" r="2.5" stroke="#00ABAB" stroke-width="1.2" fill="none"/>
+            <path d="M3 14 Q3 9.5 8 9.5 Q13 9.5 13 14" stroke="#00ABAB" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+          </svg>
+          <span class="attr-label">客户</span>
+          <span class="attr-desc">对公占比 &gt;60% · 复杂股权结构</span>
+        </div>
+        <div class="attr-row">
+          <svg class="attr-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <circle cx="8" cy="8" r="6" stroke="#00ABAB" stroke-width="1.2" fill="none"/>
+            <ellipse cx="8" cy="8" rx="3" ry="6" stroke="#00ABAB" stroke-width="1" fill="none"/>
+            <line x1="2" y1="8" x2="14" y2="8" stroke="#00ABAB" stroke-width="1"/>
+          </svg>
+          <span class="attr-label">监管</span>
+          <span class="attr-desc">FATF + OFAC + EU 多重框架</span>
+        </div>
+      </div>
+      <div class="case-divider"></div>
+      <div class="needs-label needs-label--orange">各域需求 L4 · AI 能力现状</div>
+
+      <!-- Sub-item: 客户身份核实 (need=L4, current=L4 → equal) -->
+	      <div class="sub-item-row">
+	        <span class="sub-item-label">客户身份核实</span>
+	        <div class="sub-item-bar">
+	          <div class="sub-item-segment active-green"></div>
+	          <div class="sub-item-segment active-green"></div>
+	          <div class="sub-item-segment active-green"></div>
+	          <div class="sub-item-segment active-green"></div>
+	          <div class="sub-item-segment"></div>
+	          <div class="demand-line" style="--need-level: 4;"></div>
+	        </div>
+	        <span class="sub-item-badge green">L4→L4</span>
+	      </div>
+
+	      <!-- Sub-item: 交易监控 (need=L4, current=L3 → gap -1) -->
+      <div class="sub-item-row">
+        <span class="sub-item-label">交易监控</span>
+        <div class="sub-item-bar">
+          <div class="sub-item-segment at-risk"></div>
+          <div class="sub-item-segment at-risk"></div>
+          <div class="sub-item-segment at-risk"></div>
+          <div class="sub-item-segment gap"></div>
+          <div class="sub-item-segment"></div>
+          <div class="demand-line" style="--need-level: 4;"></div>
+        </div>
+        <span class="sub-item-badge orange">L4→L3</span>
+      </div>
+
+      <!-- Sub-item: 可疑交易分析 (need=L4, current=L3 → gap -1) -->
+      <div class="sub-item-row">
+        <span class="sub-item-label">可疑交易分析</span>
+        <div class="sub-item-bar">
+          <div class="sub-item-segment at-risk"></div>
+          <div class="sub-item-segment at-risk"></div>
+          <div class="sub-item-segment at-risk"></div>
+          <div class="sub-item-segment gap"></div>
+          <div class="sub-item-segment"></div>
+          <div class="demand-line" style="--need-level: 4;"></div>
+        </div>
+        <span class="sub-item-badge orange">L4→L3</span>
+      </div>
+
+      <!-- Sub-item: 名单筛查 (need=L4, current=L4 → equal) -->
+	      <div class="sub-item-row">
+	        <span class="sub-item-label">名单筛查</span>
+	        <div class="sub-item-bar">
+	          <div class="sub-item-segment active-green"></div>
+	          <div class="sub-item-segment active-green"></div>
+	          <div class="sub-item-segment active-green"></div>
+	          <div class="sub-item-segment active-green"></div>
+	          <div class="sub-item-segment"></div>
+	          <div class="demand-line" style="--need-level: 4;"></div>
+	        </div>
+	        <span class="sub-item-badge green">L4→L4</span>
+	      </div>
+
+	      <!-- Sub-item: 尽职调查 (need=L4, current=L3 → gap -1) -->
+      <div class="sub-item-row">
+        <span class="sub-item-label">尽职调查</span>
+        <div class="sub-item-bar">
+          <div class="sub-item-segment at-risk"></div>
+          <div class="sub-item-segment at-risk"></div>
+          <div class="sub-item-segment at-risk"></div>
+          <div class="sub-item-segment gap"></div>
+          <div class="sub-item-segment"></div>
+          <div class="demand-line" style="--need-level: 4;"></div>
+        </div>
+        <span class="sub-item-badge orange">L4→L3</span>
+      </div>
+
+      <div class="case-recommendation">
+        <span>
+          <svg viewBox="0 0 14 14" fill="none" aria-hidden="true">
+            <path d="M7 2 L13 12 L1 12 Z" stroke="#E65C00" stroke-width="1.2" fill="none" stroke-linejoin="round"/>
+            <line x1="7" y1="6" x2="7" y2="9" stroke="#E65C00" stroke-width="1.2" stroke-linecap="round"/>
+            <circle cx="7" cy="11" r="0.5" fill="#E65C00"/>
+          </svg>
+        </span>
+        <span>建议优先补齐 <strong>交易监控</strong> 和 <strong>可疑交易分析</strong> 短板（差距 -1）</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Slide 4: Use Case Walkthrough — Fork Timeline -->
+<section class="slide" id="s4">
+  <span class="slide-number">04 / 10</span>
+  <div class="tag">案例</div>
+  <h2 class="slide-title">从盲目投入到精准规划</h2>
+  <p class="slide-subtitle">某东部沿海城市商业银行的真实抉择——成熟度评估如何帮助客户避免一次代价高昂的决策失误</p>
+
+  <!-- Case Context -->
+  <div class="case-context fragment">
+    <span class="case-context-label">案例背景</span>
+    <p class="case-context-text">某东部沿海城市商业银行（月均交易 50 万笔，跨境占比 15%），自营监控系统运行 5 年，误报率 &gt; 95%。领导层决定"上 AI 解决误报"，已开始接触供应商——但选什么方案？需要什么基础？花多少钱能见效？</p>
+  </div>
+
+  <!-- Fork Transition -->
+  <p class="fork-transition-text fragment fragment-delay-1">此刻，该机构面临两条路——</p>
+
+  <!-- Fork Branches: Two Paths -->
+  <div class="fork-branches">
+    <!-- Path A: Blind Investment (Orange) -->
+    <div class="card path-card path-card--blind fragment">
+      <div class="path-header">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" stroke="#E65C00" stroke-width="1.5" fill="none"/>
+          <line x1="8" y1="8" x2="16" y2="16" stroke="#E65C00" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="16" y1="8" x2="8" y2="16" stroke="#E65C00" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <span class="path-title" style="color:#E65C00;">盲目投入的路径</span>
+      </div>
+      <div class="path-timeline">
+        <div class="timeline-node">
+          <span class="stage-badge" style="--badge-color:#E65C00;">S1</span>
+          <p class="node-desc">直接采购供应商 AI 监控方案</p>
+        </div>
+        <div class="timeline-node">
+          <span class="stage-badge" style="--badge-color:#E65C00;">S2</span>
+          <p class="node-desc">方案要求高质量结构化数据（需 L4），但机构实际仅 L2</p>
+        </div>
+        <div class="timeline-node">
+          <span class="stage-badge" style="--badge-color:#E65C00;">S3</span>
+          <p class="node-desc">系统上线后效果远不达预期，12 个月仍在调优</p>
+        </div>
+        <div class="timeline-node">
+          <span class="stage-badge" style="--badge-color:#E65C00;">S4</span>
+          <p class="node-desc">合规团队士气受挫，项目陷入持续消耗</p>
+        </div>
+      </div>
+      <!-- Result -->
+      <div class="result-metric result-metric--blind">
+        <p class="amount" style="color:#E65C00;">300 万+</p>
+        <p class="duration">预算损失 + 18 个月时间窗口</p>
+        <p class="impact-note" style="color:#E65C00;">方向错误，投入打水漂</p>
+      </div>
+    </div>
+
+    <!-- Path B: Assessment-Guided (Green) -->
+    <div class="card path-card path-card--guided fragment fragment-delay-1">
+      <div class="path-header">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" stroke="var(--color-accent)" stroke-width="1.5" fill="none"/>
+          <path d="M8 12 L11 15 L16 9" stroke="var(--color-accent)" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="path-title" style="color:var(--color-accent);">评估引导的路径</span>
+      </div>
+      <div class="path-timeline">
+        <div class="timeline-node">
+          <span class="stage-badge" style="--badge-color:var(--color-accent);">S1</span>
+          <p class="node-desc">先执行成熟度评估，全面诊断能力现状</p>
+        </div>
+        <div class="timeline-node">
+          <span class="stage-badge" style="--badge-color:var(--color-accent);">S2</span>
+          <p class="node-desc">评估揭示：数据整合能力 L2 才是核心瓶颈，不是算法</p>
+        </div>
+        <div class="timeline-node">
+          <span class="stage-badge" style="--badge-color:var(--color-accent);">S3</span>
+          <p class="node-desc">分阶段建设：6 个月补齐数据基础（→L3），再引入混合方案</p>
+        </div>
+        <div class="timeline-node">
+          <span class="stage-badge" style="--badge-color:var(--color-accent);">S4</span>
+          <p class="node-desc">18 个月后误报率降至 60%，每阶段成果可验证</p>
+        </div>
+      </div>
+      <!-- Result -->
+      <div class="result-metric result-metric--guided">
+        <p class="amount" style="color:var(--color-accent);">120 万</p>
+        <p class="duration">可控投入 + 18 个月见效</p>
+        <p class="impact-note" style="color:var(--color-accent);">路径清晰，投入可控</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Conclusion Banner -->
+  <div class="conclusion-banner fragment fragment-delay-2">
+    <svg viewBox="0 0 22 22" fill="none" aria-hidden="true">
+      <circle cx="11" cy="11" r="9" stroke="var(--color-text)" stroke-width="1.5" fill="none" opacity="0.6"/>
+      <path d="M8 11 L10 13 L14 9" stroke="var(--color-accent)" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <p>
+      成熟度评估将决策问题从<span class="highlight">"买哪个 AI 产品"</span>重构为<span class="highlight">"按什么顺序建设什么能力"</span>——避免了一次代价高昂的方向性错误
+    </p>
+  </div>
+</section>
+
+<!-- Slide 5: Architecture -->
+<section class="slide" id="s5">
+  <span class="slide-number">05 / 10</span>
+  <div class="tag">架构</div>
+  <h2 class="slide-title">评估模型五层架构</h2>
+  <p class="slide-subtitle">从机构画像出发，经过确定性规则引擎，产出个性化评估结果</p>
+  <div class="grid-2" style="gap:2rem;">
+    <!-- Left: Architecture SVG -->
+    <div>
+      <svg width="100%" height="100%" viewBox="0 0 440 496" fill="none" class="fragment" role="img" aria-label="评估模型五层架构">
+        <rect x="20" y="10" width="400" height="66" rx="8" fill="var(--color-bg-card)" stroke="var(--color-text-muted)" stroke-width="1"/>
+        <text x="220" y="40" text-anchor="middle" fill="var(--color-text-secondary)" font-size="18" font-weight="600">输入层</text>
+        <text x="220" y="62" text-anchor="middle" fill="var(--color-text-muted)" font-size="15">机构业务画像采集 · 5 维度 × 3 档位</text>
+        <line x1="220" y1="76" x2="220" y2="98" stroke="var(--color-accent)" stroke-width="2"/>
+        <polygon points="214,93 220,103 226,93" fill="var(--color-accent)"/>
+        <rect x="20" y="104" width="400" height="66" rx="8" fill="var(--color-bg-card)" stroke="var(--color-accent)" stroke-width="1.5"/>
+        <text x="220" y="134" text-anchor="middle" fill="var(--color-accent)" font-size="18" font-weight="600">映射层</text>
+        <text x="220" y="156" text-anchor="middle" fill="var(--color-text-muted)" font-size="15">规则引擎 · 业务画像 → 技术需求列表 + 业务权重</text>
+        <line x1="220" y1="170" x2="220" y2="192" stroke="var(--color-accent)" stroke-width="2"/>
+        <polygon points="214,187 220,197 226,187" fill="var(--color-accent)"/>
+        <rect x="20" y="198" width="400" height="66" rx="8" fill="var(--color-bg-card)" stroke="var(--color-text-muted)" stroke-width="1"/>
+        <text x="220" y="228" text-anchor="middle" fill="var(--color-text-secondary)" font-size="18" font-weight="600">评估层</text>
+        <text x="220" y="250" text-anchor="middle" fill="var(--color-text-muted)" font-size="15">12 项 AI 技术逐项 L1–L5 成熟度评分 · 对照实例化标尺判级</text>
+        <line x1="220" y1="264" x2="220" y2="286" stroke="var(--color-accent)" stroke-width="2"/>
+        <polygon points="214,281 220,291 226,281" fill="var(--color-accent)"/>
+        <rect x="20" y="292" width="400" height="66" rx="8" fill="var(--color-bg-card)" stroke="var(--color-accent)" stroke-width="1.5"/>
+        <text x="220" y="322" text-anchor="middle" fill="var(--color-accent)" font-size="18" font-weight="600">聚合层</text>
+        <text x="220" y="344" text-anchor="middle" fill="var(--color-text-muted)" font-size="15">加权聚合 · Σ(技术得分 × 业务权重) → 综合成熟度等级</text>
+        <line x1="220" y1="358" x2="220" y2="380" stroke="var(--color-accent)" stroke-width="2"/>
+        <polygon points="214,375 220,385 226,375" fill="var(--color-accent)"/>
+        <rect x="20" y="386" width="400" height="66" rx="8" fill="var(--color-bg-card)" stroke="var(--color-text-muted)" stroke-width="1"/>
+        <text x="220" y="416" text-anchor="middle" fill="var(--color-text-secondary)" font-size="18" font-weight="600">输出层</text>
+        <text x="220" y="438" text-anchor="middle" fill="var(--color-text-muted)" font-size="15">等级卡片 · 雷达图 · 能力剖面 · 差距分析 · 演进路线图</text>
+        <text x="220" y="482" text-anchor="middle" fill="var(--color-text-muted)" font-size="13">绿色边框 = 引擎自动推导层（映射 + 聚合），人工完成输入采集与评估</text>
+      </svg>
+    </div>
+
+    <!-- Right: 映射层规则引擎 -->
+    <div class="mapping-panel fragment fragment-delay-1">
+      <div class="mapping-panel-header">
+        <div class="mapping-panel-title">映射层：规则引擎</div>
+      </div>
+
+      <!-- Rule table -->
+      <table class="rule-table">
+        <thead>
+          <tr>
+            <th>业务画像条件</th>
+            <th>映射技术需求</th>
+            <th>业务权重</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="rule-tag rule-tag--condition">跨境交易占比 &gt; 30%</span></td>
+            <td><span class="rule-tag rule-tag--result">多语种 NLP</span></td>
+            <td><span class="rule-badge">权重+1</span></td>
+          </tr>
+          <tr>
+            <td><span class="rule-tag rule-tag--condition">PEP 客户占比 &gt; 5%</span></td>
+            <td><span class="rule-tag rule-tag--result">知识图谱关联网络</span></td>
+            <td><span class="rule-badge">权重+1</span></td>
+          </tr>
+          <tr>
+            <td><span class="rule-tag rule-tag--condition">月均交易 &gt; 100万笔</span></td>
+            <td><span class="rule-tag rule-tag--result">实时异常检测</span></td>
+            <td><span class="rule-badge">权重+1</span></td>
+          </tr>
+          <tr>
+            <td><span class="rule-tag rule-tag--condition">涉及制裁高风险国家</span></td>
+            <td><span class="rule-tag rule-tag--result">增强型名单筛查</span></td>
+            <td><span class="rule-badge">权重+1</span></td>
+          </tr>
+          <tr>
+            <td><span class="rule-tag rule-tag--condition">高风险行业客户占比 &gt; 15%</span></td>
+            <td><span class="rule-tag rule-tag--result">增强型客户尽职调查</span></td>
+            <td><span class="rule-badge">权重+1</span></td>
+          </tr>
+          <tr>
+            <td><span class="rule-tag rule-tag--condition">高频小额拆分交易</span></td>
+            <td><span class="rule-tag rule-tag--result">模式识别与聚合分析</span></td>
+            <td><span class="rule-badge">权重+1</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- Slide 6: 4 Domains -->
+<section class="slide" id="s6">
+  <span class="slide-number">06 / 10</span>
+  <div class="tag">评估维度</div>
+  <h2 class="slide-title">四大 AI 能力域</h2>
+  <p class="slide-subtitle">覆盖从数据基础到持续进化的完整 AI 价值链</p>
+  <div class="grid-2">
+    <div class="card fragment">
+      <svg width="40" height="40" viewBox="0 0 40 40" fill="none" style="margin-bottom:0.75rem;">
+        <rect x="6" y="6" width="12" height="12" rx="2" stroke="var(--color-accent)" stroke-width="1.5" fill="none"/>
+        <rect x="22" y="6" width="12" height="12" rx="2" stroke="var(--color-accent)" stroke-width="1.5" fill="none"/>
+        <rect x="6" y="22" width="12" height="12" rx="2" stroke="var(--color-accent)" stroke-width="1.5" fill="none"/>
+        <rect x="22" y="22" width="12" height="12" rx="2" stroke="var(--color-accent)" stroke-width="1.5" fill="none"/>
+        <line x1="12" y1="20" x2="12" y2="28" stroke="var(--color-accent)" stroke-width="1"/>
+      </svg>
+      <h3>I. 数据与文本智能</h3>
+      <p>T1 结构化数据整合 · T2 非结构化文档解析 · T3 多语种 NLP 与实体识别</p>
+    </div>
+    <div class="card fragment fragment-delay-1">
+      <svg width="40" height="40" viewBox="0 0 40 40" fill="none" style="margin-bottom:0.75rem;">
+        <circle cx="20" cy="20" r="12" stroke="var(--color-accent)" stroke-width="1.5" fill="none"/>
+        <circle cx="16" cy="16" r="3" fill="var(--color-accent)" opacity="0.5"/>
+        <circle cx="24" cy="22" r="3" fill="var(--color-accent)" opacity="0.5"/>
+        <circle cx="26" cy="14" r="2" fill="var(--color-accent)" opacity="0.3"/>
+        <line x1="16" y1="16" x2="24" y2="22" stroke="var(--color-accent)" stroke-width="1"/>
+      </svg>
+      <h3>II. 检测与发现</h3>
+      <p>T4 智能规则引擎 · T5 无监督异常检测 · T6 监督式风险预测 · T7 知识图谱关联网络</p>
+    </div>
+    <div class="card fragment fragment-delay-2">
+      <svg width="40" height="40" viewBox="0 0 40 40" fill="none" style="margin-bottom:0.75rem;">
+        <path d="M10 28 L20 8 L30 28 Z" stroke="var(--color-accent)" stroke-width="1.5" fill="none"/>
+        <circle cx="20" cy="15" r="2" fill="var(--color-accent)"/>
+        <line x1="16" y1="23" x2="24" y2="23" stroke="var(--color-accent)" stroke-width="1"/>
+      </svg>
+      <h3>III. 决策与行动</h3>
+      <p>T8 智能预警排序 · T9 自动化尽调报告 · T10 Agentic 多步骤推理与编排</p>
+    </div>
+    <div class="card fragment fragment-delay-3">
+      <svg width="40" height="40" viewBox="0 0 40 40" fill="none" style="margin-bottom:0.75rem;">
+        <circle cx="20" cy="20" r="14" stroke="var(--color-accent)" stroke-width="1.5" fill="none"/>
+        <path d="M20 8 Q28 20 20 32 Q12 20 20 8" stroke="var(--color-accent)" stroke-width="1" fill="none"/>
+        <circle cx="20" cy="20" r="3" fill="var(--color-accent)"/>
+      </svg>
+      <h3>IV. 治理与进化</h3>
+      <p>T11 模型可解释性与审计追踪 · T12 反馈闭环与持续学习</p>
+    </div>
+  </div>
+</section>
+
+<!-- Slide 7: Maturity Levels -->
+<section class="slide" id="s7">
+  <span class="slide-number">07 / 10</span>
+  <div class="tag">标尺</div>
+  <h2 class="slide-title">五级成熟度阶梯</h2>
+  <p class="slide-subtitle">每项 AI 技术独立评定，从完全依赖人工到自主进化</p>
+
+  <!-- Row 1: Staircase + Anchor card side by side -->
+  <div class="grid-2 s7-top-row fragment">
+    <div>
+      <svg width="100%" height="auto" viewBox="0 0 800 220" fill="none" role="img" aria-label="五级成熟度阶梯：L1 初始（依赖人工）→ L2 局部探索（点状试点）→ L3 可用运行（标准化生产）→ L4 深度集成（端到端嵌入）→ L5 自适应（自主进化）">
+        <rect x="20" y="130" width="140" height="70" rx="8" fill="var(--color-bg-card)" stroke="var(--color-text-muted)" stroke-width="1.5"/>
+        <text x="90" y="160" text-anchor="middle" fill="var(--color-text-secondary)" font-size="18" font-weight="700">L1 初始</text>
+        <text x="90" y="183" text-anchor="middle" fill="var(--color-text-muted)" font-size="14">依赖人工</text>
+        <rect x="175" y="100" width="140" height="70" rx="8" fill="var(--color-bg-card)" stroke="var(--color-text-muted)" stroke-width="1.5"/>
+        <text x="245" y="130" text-anchor="middle" fill="var(--color-text-secondary)" font-size="18" font-weight="700">L2 局部探索</text>
+        <text x="245" y="153" text-anchor="middle" fill="var(--color-text-muted)" font-size="14">点状试点</text>
+        <rect x="330" y="70" width="140" height="70" rx="8" fill="var(--color-bg-card)" stroke="var(--color-accent)" stroke-width="2"/>
+        <text x="400" y="100" text-anchor="middle" fill="var(--color-accent)" font-size="18" font-weight="700">L3 可用运行</text>
+        <text x="400" y="123" text-anchor="middle" fill="var(--color-text-muted)" font-size="14">标准化生产</text>
+        <rect x="485" y="40" width="140" height="70" rx="8" fill="var(--color-bg-card)" stroke="var(--color-text-muted)" stroke-width="1.5"/>
+        <text x="555" y="70" text-anchor="middle" fill="var(--color-text-secondary)" font-size="18" font-weight="700">L4 深度集成</text>
+        <text x="555" y="93" text-anchor="middle" fill="var(--color-text-muted)" font-size="14">端到端嵌入</text>
+        <rect x="640" y="10" width="140" height="70" rx="8" fill="var(--color-bg-card)" stroke="var(--color-accent)" stroke-width="2"/>
+        <text x="710" y="40" text-anchor="middle" fill="var(--color-accent)" font-size="18" font-weight="700">L5 自适应</text>
+        <text x="710" y="63" text-anchor="middle" fill="var(--color-text-muted)" font-size="14">自主进化</text>
+        <line x1="160" y1="165" x2="175" y2="135" stroke="var(--color-text-muted)" stroke-width="1.5" stroke-dasharray="5 4"/>
+        <line x1="315" y1="135" x2="330" y2="105" stroke="var(--color-text-muted)" stroke-width="1.5" stroke-dasharray="5 4"/>
+        <line x1="470" y1="105" x2="485" y2="75" stroke="var(--color-text-muted)" stroke-width="1.5" stroke-dasharray="5 4"/>
+        <line x1="625" y1="75" x2="640" y2="45" stroke="var(--color-text-muted)" stroke-width="1.5" stroke-dasharray="5 4"/>
+      </svg>
+
+      <p class="s7-staircase-legend">绿色边框 = 关键锚点等级（L3 标准化生产为基线目标，L5 自主进化为远期愿景）</p>
+    </div>
+
+    <!-- Anchor example card -->
+    <div class="card s7-anchor-card">
+      <div class="anchor-title">判定锚点示例（T1 结构化数据整合）</div>
+      <div class="anchor-level-row">
+        <span class="anchor-level-tag" style="color:#E65C00;">L1 初始</span>
+        <span style="color:var(--color-text-secondary);">各系统数据孤立，手工导出 Excel 合并</span>
+      </div>
+      <div class="anchor-level-row">
+        <span class="anchor-level-tag" style="color:#E6A500;">L2 局部探索</span>
+        <span style="color:var(--color-text-secondary);">部分系统打通，定期批量同步</span>
+      </div>
+      <div class="anchor-level-row">
+        <span class="anchor-level-tag" style="color:var(--color-accent);">L3 可用运行</span>
+        <span style="color:var(--color-text-secondary);">核心系统数据打通，有统一数据字典与质量监控</span>
+      </div>
+      <div class="anchor-level-row">
+        <span class="anchor-level-tag" style="color:var(--color-accent);">L4 深度集成</span>
+        <span style="color:var(--color-text-secondary);">实时数据管道，跨系统事件驱动同步</span>
+      </div>
+      <div class="anchor-level-row">
+        <span class="anchor-level-tag" style="color:var(--color-accent-secondary);">L5 自适应</span>
+        <span style="color:var(--color-text-secondary);">实时数据编织架构，自动发现与联邦查询</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 2: Full-width gap card -->
+  <div class="card gap-card fragment fragment-delay-1" style="margin-top:2rem;">
+    <p class="gap-card-title" style="font-size:1.1rem;">L1-L5 是一把<span style="color:var(--color-accent);">通用标尺</span></p>
+    <p class="gap-intro" style="font-size:0.9rem;">成熟度评估不是算出一个"最终等级"，而是帮机构搞清楚三个问题：<br><strong style="color:var(--color-accent);">① 我应该到哪儿？</strong> <strong style="color:var(--color-accent-secondary);">② 我现在在哪儿？</strong> <strong style="color:var(--color-text);">③ 差距多大？</strong></p>
+
+    <div class="gap-example-row">
+      <div class="gap-example">
+        <p class="inst-name">城市商业银行</p>
+        <div class="gap-metrics">
+          <span class="metric needs">需求 L2-L3</span>
+          <span class="metric current">当前 2/5 达标</span>
+        </div>
+        <p class="gap-conclusion orange"><strong>尽调差距最大</strong>（-2），<strong>交易监控</strong>、<strong>可疑交易分析</strong>存在不同程度短板</p>
+      </div>
+      <div class="gap-example">
+        <p class="inst-name">大型商业银行</p>
+        <div class="gap-metrics">
+          <span class="metric needs">需求 L4</span>
+          <span class="metric current">当前 2/5 达标</span>
+        </div>
+        <p class="gap-conclusion orange"><strong>交易监控</strong>、<strong>可疑交易分析</strong>、<strong>尽职调查</strong> 均差 1 级</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Slide 8: Deliverables -->
+<section class="slide" id="s8">
+  <span class="slide-number">08 / 10</span>
+  <div class="tag">交付</div>
+  <h2 class="slide-title">评估交付物一览</h2>
+
+  <div style="display:flex;flex-wrap:wrap;gap:2rem;">
+
+    <!-- Left Card: Radar Chart -->
+    <div class="card fragment" style="flex:1 1 360px;min-width:320px;display:flex;flex-direction:column;justify-content:center;padding:1.5rem;">
+      <h3 style="margin-bottom:0.35rem;">雷达图 · 四域能力剖面</h3>
+      <p style="font-size:0.8rem;color:var(--color-text-muted);margin-bottom:0.5rem;">城市商业银行 · 综合评定 <strong style="color:var(--color-accent);">L2 局部探索</strong></p>
+      <div style="flex:1;display:flex;align-items:center;justify-content:center;">
+        <svg width="100%" height="auto" viewBox="0 0 360 280" style="max-width:340px;" role="img" aria-label="城市商业银行四域能力雷达图：数据智能 L2、检测发现 L3、决策行动 L1、治理进化 L2，综合等级 L2">
+          <!-- Grid rings (center=180,140; radius step=22) -->
+          <polygon points="180,30 290,140 180,250 70,140" stroke="var(--color-text-muted)" stroke-width="0.6" fill="none" opacity="0.5"/>
+          <polygon points="180,52 268,140 180,228 92,140" stroke="var(--color-text-muted)" stroke-width="0.5" fill="none" opacity="0.4"/>
+          <polygon points="180,74 246,140 180,206 114,140" stroke="var(--color-text-muted)" stroke-width="0.5" fill="none" opacity="0.35"/>
+          <polygon points="180,96 224,140 180,184 136,140" stroke="var(--color-text-muted)" stroke-width="0.5" fill="none" opacity="0.3"/>
+          <polygon points="180,118 202,140 180,162 158,140" stroke="var(--color-text-muted)" stroke-width="0.5" fill="none" opacity="0.25"/>
+          <!-- Level labels on top axis -->
+          <text x="180" y="27" text-anchor="middle" fill="var(--color-text-muted)" font-size="10" opacity="0.7">L5</text>
+          <text x="180" y="49" text-anchor="middle" fill="var(--color-text-muted)" font-size="10" opacity="0.6">L4</text>
+          <text x="180" y="71" text-anchor="middle" fill="var(--color-text-muted)" font-size="10" opacity="0.5">L3</text>
+          <text x="180" y="93" text-anchor="middle" fill="var(--color-text-muted)" font-size="10" opacity="0.4">L2</text>
+          <text x="180" y="115" text-anchor="middle" fill="var(--color-text-muted)" font-size="10" opacity="0.3">L1</text>
+          <!-- Data polygon: I:L2(r=44,y=96), II:L3(r=66,y=74), III:L1(r=22,y=162), IV:L2(r=44,y=184) -->
+          <polygon points="180,96 246,140 180,162 114,140" stroke="var(--color-accent)" stroke-width="2.2" fill="var(--color-accent)" fill-opacity="0.12"/>
+          <circle cx="180" cy="96" r="4" fill="var(--color-accent)"/>
+          <circle cx="246" cy="140" r="4" fill="var(--color-accent)"/>
+          <circle cx="180" cy="162" r="4" fill="#E65C00"/>
+          <circle cx="114" cy="140" r="4" fill="var(--color-accent)"/>
+          <!-- Point labels -->
+          <text x="180" y="88" text-anchor="middle" fill="var(--color-accent)" font-size="12" font-weight="600">L2</text>
+          <text x="254" y="144" fill="var(--color-accent)" font-size="12" font-weight="600">L3</text>
+          <text x="180" y="180" text-anchor="middle" fill="#E65C00" font-size="12" font-weight="600">L1</text>
+          <text x="104" y="144" text-anchor="end" fill="var(--color-accent)" font-size="12" font-weight="600">L2</text>
+          <!-- Axis labels -->
+          <text x="180" y="8" text-anchor="middle" fill="var(--color-text-secondary)" font-size="12" font-weight="500">数据智能</text>
+          <text x="318" y="144" fill="var(--color-text-secondary)" font-size="12" font-weight="500">检测发现</text>
+          <text x="180" y="276" text-anchor="middle" fill="var(--color-text-secondary)" font-size="12" font-weight="500">决策行动</text>
+          <text x="42" y="144" text-anchor="end" fill="var(--color-text-secondary)" font-size="12" font-weight="500">治理进化</text>
+          <!-- Center badge -->
+          <rect x="148" y="126" width="64" height="28" rx="5" fill="var(--color-bg-card)" stroke="var(--color-accent)" stroke-width="1.2"/>
+          <text x="180" y="144" text-anchor="middle" fill="var(--color-accent)" font-size="14" font-weight="700">综合 L2</text>
+        </svg>
+      </div>
+      <p style="font-size:0.7rem;color:var(--color-text-muted);text-align:center;margin-top:0.5rem;">决策行动域（L1）为最大短板 · 与右侧差距表 T9/T10 对应</p>
+    </div>
+
+    <!-- Right Card: Gap Table -->
+    <div class="card fragment fragment-delay-1" style="flex:1 1 420px;min-width:320px;padding:1.5rem;">
+      <h3 style="margin-bottom:0.25rem;">差距分析 · 能力剖面</h3>
+      <p style="font-size:0.8rem;color:var(--color-text-muted);margin-bottom:0.5rem;">12 项技术能力逐项对标 · 城市商业银行 · 目标等级 L2–L3</p>
+      <table style="width:100%;border-collapse:collapse;font-size:0.76rem;">
+        <thead>
+          <tr style="border-bottom:1.5px solid var(--color-border);">
+            <th style="text-align:left;padding:0.25rem 0.5rem;font-weight:500;color:var(--color-text-muted);width:38%;">技术项</th>
+            <th style="text-align:left;padding:0.25rem 0.5rem;font-weight:500;color:var(--color-text-muted);">当前 vs 目标</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Domain I -->
+          <tr style="background:rgba(134,188,37,0.06);">
+            <td colspan="2" style="padding:0.2rem 0.5rem;color:var(--color-accent);font-weight:600;font-size:0.74rem;">I. 数据与文本智能</td>
+          </tr>
+          <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+            <td style="padding:0.28rem 0.5rem;">T1 数据整合</td>
+            <td style="padding:0.28rem 0.5rem;">
+              <div style="display:flex;align-items:center;gap:0.5rem;">
+                <div style="display:flex;gap:3px;flex:1;position:relative;">
+                  <div style="flex:1;height:10px;background:var(--color-accent);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:var(--color-accent);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:var(--color-accent);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:rgba(255,255,255,0.06);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:rgba(255,255,255,0.06);border-radius:2px;"></div>
+                  <div style="position:absolute;right:calc(40% + 1.5px);top:-2px;bottom:-2px;width:1.5px;background:var(--color-accent);border-radius:1px;"></div>
+                </div>
+                <span style="font-size:0.75rem;color:var(--color-text-muted);white-space:nowrap;min-width:20px;text-align:center;">&middot;</span>
+              </div>
+            </td>
+          </tr>
+          <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+            <td style="padding:0.28rem 0.5rem;">T2 文档解析</td>
+            <td style="padding:0.28rem 0.5rem;">
+              <div style="display:flex;align-items:center;gap:0.5rem;">
+                <div style="display:flex;gap:3px;flex:1;position:relative;">
+                  <div style="flex:1;height:10px;background:var(--color-accent);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:var(--color-accent);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:#E65C00;border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:rgba(255,255,255,0.06);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:rgba(255,255,255,0.06);border-radius:2px;"></div>
+                  <div style="position:absolute;right:calc(40% + 1.5px);top:-2px;bottom:-2px;width:1.5px;background:var(--color-accent);border-radius:1px;"></div>
+                </div>
+                <span style="font-size:0.73rem;color:#E65C00;white-space:nowrap;min-width:18px;text-align:center;font-weight:500;">-1</span>
+              </div>
+            </td>
+          </tr>
+          <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+            <td style="padding:0.28rem 0.5rem;">T3 多语种NLP</td>
+            <td style="padding:0.28rem 0.5rem;">
+              <div style="display:flex;align-items:center;gap:0.5rem;">
+                <div style="display:flex;gap:3px;flex:1;position:relative;">
+                  <div style="flex:1;height:10px;background:var(--color-accent);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:var(--color-accent);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:rgba(255,255,255,0.06);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:rgba(255,255,255,0.06);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:rgba(255,255,255,0.06);border-radius:2px;"></div>
+                  <div style="position:absolute;right:calc(60% + 1.5px);top:-2px;bottom:-2px;width:1.5px;background:var(--color-accent);border-radius:1px;"></div>
+                </div>
+                <span style="font-size:0.75rem;color:var(--color-text-muted);white-space:nowrap;min-width:20px;text-align:center;">&middot;</span>
+              </div>
+            </td>
+          </tr>
+          <!-- Domain II -->
+          <tr style="background:rgba(134,188,37,0.06);">
+            <td colspan="2" style="padding:0.2rem 0.5rem;color:var(--color-accent);font-weight:600;font-size:0.74rem;">II. 检测与发现</td>
+          </tr>
+          <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+            <td style="padding:0.28rem 0.5rem;">T4 规则引擎</td>
+            <td style="padding:0.28rem 0.5rem;">
+              <div style="display:flex;align-items:center;gap:0.5rem;">
+                <div style="display:flex;gap:3px;flex:1;position:relative;">
+                  <div style="flex:1;height:10px;background:var(--color-accent);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:var(--color-accent);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:var(--color-accent);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:rgba(255,255,255,0.06);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:rgba(255,255,255,0.06);border-radius:2px;"></div>
+                  <div style="position:absolute;right:calc(40% + 1.5px);top:-2px;bottom:-2px;width:1.5px;background:var(--color-accent);border-radius:1px;"></div>
+                </div>
+                <span style="font-size:0.75rem;color:var(--color-text-muted);white-space:nowrap;min-width:20px;text-align:center;">&middot;</span>
+              </div>
+            </td>
+          </tr>
+          <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+            <td style="padding:0.28rem 0.5rem;">T5 异常检测</td>
+            <td style="padding:0.28rem 0.5rem;">
+              <div style="display:flex;align-items:center;gap:0.5rem;">
+                <div style="display:flex;gap:3px;flex:1;position:relative;">
+                  <div style="flex:1;height:10px;background:var(--color-accent);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:var(--color-accent);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:var(--color-accent);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:rgba(255,255,255,0.06);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:rgba(255,255,255,0.06);border-radius:2px;"></div>
+                  <div style="position:absolute;right:calc(40% + 1.5px);top:-2px;bottom:-2px;width:1.5px;background:var(--color-accent);border-radius:1px;"></div>
+                </div>
+                <span style="font-size:0.75rem;color:var(--color-text-muted);white-space:nowrap;min-width:20px;text-align:center;">&middot;</span>
+              </div>
+            </td>
+          </tr>
+          <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+            <td style="padding:0.28rem 0.5rem;">T6 风险预测</td>
+            <td style="padding:0.28rem 0.5rem;">
+              <div style="display:flex;align-items:center;gap:0.5rem;">
+                <div style="display:flex;gap:3px;flex:1;position:relative;">
+                  <div style="flex:1;height:10px;background:var(--color-accent);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:var(--color-accent);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:#E65C00;border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:rgba(255,255,255,0.06);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:rgba(255,255,255,0.06);border-radius:2px;"></div>
+                  <div style="position:absolute;right:calc(40% + 1.5px);top:-2px;bottom:-2px;width:1.5px;background:var(--color-accent);border-radius:1px;"></div>
+                </div>
+                <span style="font-size:0.73rem;color:#E65C00;white-space:nowrap;min-width:18px;text-align:center;font-weight:500;">-1</span>
+              </div>
+            </td>
+          </tr>
+          <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+            <td style="padding:0.28rem 0.5rem;">T7 知识图谱</td>
+            <td style="padding:0.28rem 0.5rem;">
+              <div style="display:flex;align-items:center;gap:0.5rem;">
+                <div style="display:flex;gap:3px;flex:1;position:relative;">
+                  <div style="flex:1;height:10px;background:var(--color-accent);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:var(--color-accent);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:rgba(255,255,255,0.06);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:rgba(255,255,255,0.06);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:rgba(255,255,255,0.06);border-radius:2px;"></div>
+                  <div style="position:absolute;right:calc(60% + 1.5px);top:-2px;bottom:-2px;width:1.5px;background:var(--color-accent);border-radius:1px;"></div>
+                </div>
+                <span style="font-size:0.75rem;color:var(--color-text-muted);white-space:nowrap;min-width:20px;text-align:center;">&middot;</span>
+              </div>
+            </td>
+          </tr>
+          <!-- Domain III with badge -->
+          <tr style="background:rgba(134,188,37,0.06);">
+            <td colspan="2" style="padding:0.2rem 0.5rem;font-weight:600;font-size:0.74rem;">
+              <span style="color:var(--color-accent);">III. 决策与行动</span>
+              <span style="display:inline-block;padding:1px 6px;border-radius:8px;background:rgba(229,92,0,0.18);color:#E65C00;font-size:0.65rem;font-weight:600;margin-left:0.4rem;vertical-align:middle;">最大短板</span>
+            </td>
+          </tr>
+          <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+            <td style="padding:0.28rem 0.5rem;">T8 预警排序</td>
+            <td style="padding:0.28rem 0.5rem;">
+              <div style="display:flex;align-items:center;gap:0.5rem;">
+                <div style="display:flex;gap:3px;flex:1;position:relative;">
+                  <div style="flex:1;height:10px;background:var(--color-accent);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:var(--color-accent);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:#E65C00;border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:rgba(255,255,255,0.06);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:rgba(255,255,255,0.06);border-radius:2px;"></div>
+                  <div style="position:absolute;right:calc(40% + 1.5px);top:-2px;bottom:-2px;width:1.5px;background:var(--color-accent);border-radius:1px;"></div>
+                </div>
+                <span style="font-size:0.73rem;color:#E65C00;white-space:nowrap;min-width:18px;text-align:center;font-weight:500;">-1</span>
+              </div>
+            </td>
+          </tr>
+          <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+            <td style="padding:0.28rem 0.5rem;">T9 尽调报告</td>
+            <td style="padding:0.28rem 0.5rem;">
+              <div style="display:flex;align-items:center;gap:0.5rem;">
+                <div style="display:flex;gap:3px;flex:1;position:relative;">
+                  <div style="flex:1;height:10px;background:var(--color-accent);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:#E65C00;border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:#E65C00;border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:rgba(255,255,255,0.06);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:rgba(255,255,255,0.06);border-radius:2px;"></div>
+                  <div style="position:absolute;right:calc(40% + 1.5px);top:-2px;bottom:-2px;width:1.5px;background:var(--color-accent);border-radius:1px;"></div>
+                </div>
+                <span style="font-size:0.73rem;color:#E65C00;white-space:nowrap;min-width:18px;text-align:center;font-weight:600;">-2</span>
+              </div>
+            </td>
+          </tr>
+          <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+            <td style="padding:0.28rem 0.5rem;">T10 Agentic编排</td>
+            <td style="padding:0.28rem 0.5rem;">
+              <div style="display:flex;align-items:center;gap:0.5rem;">
+                <div style="display:flex;gap:3px;flex:1;position:relative;">
+                  <div style="flex:1;height:10px;background:var(--color-accent);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:#E65C00;border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:rgba(255,255,255,0.06);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:rgba(255,255,255,0.06);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:rgba(255,255,255,0.06);border-radius:2px;"></div>
+                  <div style="position:absolute;right:calc(60% + 1.5px);top:-2px;bottom:-2px;width:1.5px;background:var(--color-accent);border-radius:1px;"></div>
+                </div>
+                <span style="font-size:0.73rem;color:#E65C00;white-space:nowrap;min-width:18px;text-align:center;font-weight:500;">-1</span>
+              </div>
+            </td>
+          </tr>
+          <!-- Domain IV -->
+          <tr style="background:rgba(134,188,37,0.06);">
+            <td colspan="2" style="padding:0.2rem 0.5rem;color:var(--color-accent);font-weight:600;font-size:0.74rem;">IV. 治理与进化</td>
+          </tr>
+          <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+            <td style="padding:0.28rem 0.5rem;">T11 可解释性</td>
+            <td style="padding:0.28rem 0.5rem;">
+              <div style="display:flex;align-items:center;gap:0.5rem;">
+                <div style="display:flex;gap:3px;flex:1;position:relative;">
+                  <div style="flex:1;height:10px;background:var(--color-accent);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:var(--color-accent);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:#E65C00;border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:rgba(255,255,255,0.06);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:rgba(255,255,255,0.06);border-radius:2px;"></div>
+                  <div style="position:absolute;right:calc(40% + 1.5px);top:-2px;bottom:-2px;width:1.5px;background:var(--color-accent);border-radius:1px;"></div>
+                </div>
+                <span style="font-size:0.73rem;color:#E65C00;white-space:nowrap;min-width:18px;text-align:center;font-weight:500;">-1</span>
+              </div>
+            </td>
+          </tr>
+          <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+            <td style="padding:0.28rem 0.5rem;">T12 反馈闭环</td>
+            <td style="padding:0.28rem 0.5rem;">
+              <div style="display:flex;align-items:center;gap:0.5rem;">
+                <div style="display:flex;gap:3px;flex:1;position:relative;">
+                  <div style="flex:1;height:10px;background:var(--color-accent);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:var(--color-accent);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:rgba(255,255,255,0.06);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:rgba(255,255,255,0.06);border-radius:2px;"></div>
+                  <div style="flex:1;height:10px;background:rgba(255,255,255,0.06);border-radius:2px;"></div>
+                  <div style="position:absolute;right:calc(60% + 1.5px);top:-2px;bottom:-2px;width:1.5px;background:var(--color-accent);border-radius:1px;"></div>
+                </div>
+                <span style="font-size:0.75rem;color:var(--color-text-muted);white-space:nowrap;min-width:20px;text-align:center;">&middot;</span>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <!-- Legend + Summary -->
+      <div style="margin-top:0.5rem;padding-top:0.4rem;border-top:1px solid var(--color-border);">
+        <div style="display:flex;flex-wrap:wrap;gap:0.5rem 1rem;font-size:0.68rem;color:var(--color-text-muted);margin-bottom:0.35rem;align-items:center;">
+          <div style="display:flex;align-items:center;gap:0.25rem;"><div style="width:12px;height:8px;background:var(--color-accent);border-radius:2px;"></div>已达标</div>
+          <div style="display:flex;align-items:center;gap:0.25rem;"><div style="width:12px;height:8px;background:#E65C00;border-radius:2px;"></div>有差距</div>
+          <div style="display:flex;align-items:center;gap:0.25rem;"><div style="width:12px;height:8px;background:rgba(255,255,255,0.06);border-radius:2px;"></div>超出目标</div>
+          <div style="display:flex;align-items:center;gap:0.25rem;"><div style="width:1px;height:12px;background:var(--color-accent);"></div>目标线</div>
+          <div style="display:flex;align-items:center;gap:0.25rem;color:var(--color-text-muted);">数字 = 距目标差几级（&middot; 表示已达标）</div>
+        </div>
+        <div style="border-top:1px solid rgba(255,255,255,0.06);padding-top:0.35rem;">
+          <p style="font-size:0.76rem;color:var(--color-text-secondary);line-height:1.5;">
+            12 项能力中 6 项已满足当前业务需求，5 项存在 1 级差距，1 项（T9 尽调报告）存在 2 级差距；综合建议目标 L3
+          </p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- Slide 9: Process -->
+<section class="slide" id="s9">
+  <span class="slide-number">09 / 10</span>
+  <div class="tag">流程</div>
+  <h2 class="slide-title">评估服务流程</h2>
+  <p class="slide-subtitle">从启动到最终报告，客户需配合的关键环节</p>
+  <svg width="100%" height="200" viewBox="0 0 800 200" fill="none" class="fragment" role="img" aria-label="评估服务流程：画像采集（½个工作日）→ 规则推导（无需客户参与）→ 逐项评分（顾问访谈+证据采集）→ 聚合定级（加权计算+内部校准）→ 交付报告（等级+雷达图+差距分析+路线图）">
+    <rect x="20" y="30" width="120" height="120" rx="8" fill="var(--color-bg-card)" stroke="var(--color-text-muted)" stroke-width="1"/>
+    <text x="80" y="72" text-anchor="middle" fill="var(--color-accent)" font-size="15" font-weight="600">画像采集</text>
+    <text x="80" y="94" text-anchor="middle" fill="var(--color-text-muted)" font-size="12">机构填写</text>
+    <text x="80" y="112" text-anchor="middle" fill="var(--color-text-muted)" font-size="12">业务画像问卷</text>
+    <text x="80" y="130" text-anchor="middle" fill="var(--color-text-muted)" font-size="12">½ 个工作日</text>
+    <line x1="140" y1="90" x2="170" y2="90" stroke="var(--color-accent)" stroke-width="1.5"/>
+    <polygon points="166,85 176,90 166,95" fill="var(--color-accent)"/>
+    <rect x="180" y="30" width="120" height="120" rx="8" fill="var(--color-bg-card)" stroke="var(--color-accent)" stroke-width="1.5"/>
+    <text x="240" y="72" text-anchor="middle" fill="var(--color-accent)" font-size="15" font-weight="600">规则推导</text>
+    <text x="240" y="94" text-anchor="middle" fill="var(--color-text-muted)" font-size="12">引擎自动生成</text>
+    <text x="240" y="112" text-anchor="middle" fill="var(--color-text-muted)" font-size="12">技术列表+权重</text>
+    <text x="240" y="130" text-anchor="middle" fill="var(--color-text-muted)" font-size="12">无需客户参与</text>
+    <line x1="300" y1="90" x2="330" y2="90" stroke="var(--color-accent)" stroke-width="1.5"/>
+    <polygon points="326,85 336,90 326,95" fill="var(--color-accent)"/>
+    <rect x="340" y="30" width="120" height="120" rx="8" fill="var(--color-bg-card)" stroke="var(--color-text-muted)" stroke-width="1"/>
+    <text x="400" y="72" text-anchor="middle" fill="var(--color-accent)" font-size="15" font-weight="600">逐项评分</text>
+    <text x="400" y="94" text-anchor="middle" fill="var(--color-text-muted)" font-size="12">顾问访谈+</text>
+    <text x="400" y="112" text-anchor="middle" fill="var(--color-text-muted)" font-size="12">证据采集+</text>
+    <text x="400" y="130" text-anchor="middle" fill="var(--color-text-muted)" font-size="12">对标标尺判级</text>
+    <line x1="460" y1="90" x2="490" y2="90" stroke="var(--color-accent)" stroke-width="1.5"/>
+    <polygon points="486,85 496,90 486,95" fill="var(--color-accent)"/>
+    <rect x="500" y="30" width="120" height="120" rx="8" fill="var(--color-bg-card)" stroke="var(--color-accent)" stroke-width="1.5"/>
+    <text x="560" y="72" text-anchor="middle" fill="var(--color-accent)" font-size="15" font-weight="600">聚合定级</text>
+    <text x="560" y="94" text-anchor="middle" fill="var(--color-text-muted)" font-size="12">加权计算</text>
+    <text x="560" y="112" text-anchor="middle" fill="var(--color-text-muted)" font-size="12">得分→等级</text>
+    <text x="560" y="130" text-anchor="middle" fill="var(--color-text-muted)" font-size="12">内部校准审阅</text>
+    <line x1="620" y1="90" x2="650" y2="90" stroke="var(--color-accent)" stroke-width="1.5"/>
+    <polygon points="646,85 656,90 646,95" fill="var(--color-accent)"/>
+    <rect x="660" y="30" width="120" height="120" rx="8" fill="var(--color-bg-card)" stroke="var(--color-text-muted)" stroke-width="1"/>
+    <text x="720" y="72" text-anchor="middle" fill="var(--color-accent)" font-size="15" font-weight="600">交付报告</text>
+    <text x="720" y="94" text-anchor="middle" fill="var(--color-text-muted)" font-size="12">等级+雷达图</text>
+    <text x="720" y="112" text-anchor="middle" fill="var(--color-text-muted)" font-size="12">+差距分析</text>
+    <text x="720" y="130" text-anchor="middle" fill="var(--color-text-muted)" font-size="12">+路线图建议</text>
+  </svg>
+  <p style="text-align:center;font-size:0.75rem;color:var(--color-text-muted);margin-top:0.3rem;margin-bottom:0.25rem;">绿色边框 = 引擎自动执行步骤（与 S5 映射层/聚合层一致）</p>
+  <div class="grid-3" style="margin-top:1.5rem;">
+    <div class="card fragment">
+      <h3>客户需配合</h3>
+      <p>填写业务画像问卷（5 维 × 3 档），安排关键岗位访谈（IT、合规、反洗钱负责人）</p>
+    </div>
+    <div class="card fragment fragment-delay-1">
+      <h3>顾问执行</h3>
+      <p>规则推导、逐项对标评分、证据交叉验证、聚合计算、报告编制</p>
+    </div>
+    <div class="card fragment fragment-delay-2">
+      <h3>交付物</h3>
+      <p>成熟度等级卡片 + 四域雷达图 + 12 项技术能力剖面 + 差距分析 + 演进路线图</p>
+    </div>
+  </div>
+</section>
+
+<!-- Slide 10: CTA -->
+<section class="slide" id="s10">
+  <span class="slide-number">10 / 10</span>
+  <h2 class="slide-title" style="text-align:center;">
+    精准定位 <span class="accent">AI 就绪差距</span><br>
+    明确 <span class="accent">演进路径</span>，避免盲目投入
+  </h2>
+  <p class="slide-subtitle" style="text-align:center;margin:2rem auto;">
+    从"基础不明、层级不清、场景难选"到"差距可见、路径可循、投入可控"
+  </p>
+</section>
+
+<script>
+// Slide navigation dots
+const slides = document.querySelectorAll('.slide');
+const slideNav = document.getElementById('slideNav');
+const progressBar = document.getElementById('progress');
+
+slides.forEach((slide, i) => {
+  const dot = document.createElement('button');
+  dot.className = 'slide-nav-dot';
+  dot.setAttribute('aria-label', `跳转到第 ${i + 1} 页`);
+  dot.addEventListener('click', () => {
+    slide.scrollIntoView({ behavior: 'smooth' });
+  });
+  slideNav.appendChild(dot);
+});
+
+const navDots = slideNav.querySelectorAll('.slide-nav-dot');
+
+function updateActiveSlide() {
+  let currentIndex = -1;
+  slides.forEach((s, i) => {
+    const rect = s.getBoundingClientRect();
+    if (rect.top <= window.innerHeight * 0.5 && rect.bottom > 0) currentIndex = i;
+  });
+  if (currentIndex === -1) currentIndex = 0;
+
+  navDots.forEach((dot, i) => {
+    dot.classList.toggle('active', i === currentIndex);
+  });
+
+  // Update progress bar ARIA
+  const pct = Math.round((currentIndex / (slides.length - 1)) * 100);
+  progressBar.setAttribute('aria-valuenow', pct);
+}
+
+// Keyboard navigation — only when body is focused (not inside inputs/scrollable elements)
+let isScrolling = false;
+document.addEventListener('keydown', (e) => {
+  if (document.activeElement !== document.body) return;
+  if (!['ArrowDown', 'ArrowRight', 'ArrowUp', 'ArrowLeft', 'PageDown', 'PageUp', 'Home', 'End'].includes(e.key)) return;
+  e.preventDefault();
+  if (isScrolling) return;
+
+  let currentIndex = -1;
+  slides.forEach((s, i) => {
+    const rect = s.getBoundingClientRect();
+    if (rect.top <= window.innerHeight * 0.5 && rect.bottom > 0) currentIndex = i;
+  });
+  if (currentIndex === -1) currentIndex = 0;
+
+  let next = currentIndex;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === 'PageDown') {
+    next = Math.min(currentIndex + 1, slides.length - 1);
+  } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft' || e.key === 'PageUp') {
+    next = Math.max(currentIndex - 1, 0);
+  } else if (e.key === 'Home') {
+    next = 0;
+  } else if (e.key === 'End') {
+    next = slides.length - 1;
+  }
+
+  if (next !== currentIndex) {
+    isScrolling = true;
+    slides[next].scrollIntoView({ behavior: 'smooth' });
+    setTimeout(() => { isScrolling = false; }, 600);
+  }
+});
+
+// Fragment reveal on scroll — toggle visibility based on intersection
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    const fragments = entry.target.querySelectorAll('.fragment');
+    fragments.forEach(el => {
+      if (entry.isIntersecting) {
+        el.classList.add('visible');
+      } else {
+        el.classList.remove('visible');
+      }
+    });
+  });
+}, { threshold: 0.4 });
+
+slides.forEach(slide => observer.observe(slide));
+
+window.addEventListener('scroll', () => {
+  const totalH = document.body.scrollHeight - window.innerHeight;
+  const pct = totalH > 0 ? Math.round((window.scrollY / totalH) * 100) : 0;
+  progressBar.style.width = pct + '%';
+  updateActiveSlide();
+});
+
+// Initialize
+updateActiveSlide();
+</script>
+</body>
+</html>
