@@ -266,41 +266,6 @@ body {
 .progress-bar { position: fixed; top: 0; left: 0; width: 100%; height: 3px; z-index: 100; background: rgba(255,255,255,0.08); }
 .progress-fill { height: 100%; background: var(--color-accent); width: 0%; transition: width 0.3s ease; }
 
-.cta-button {
-  display: inline-block;
-  padding: 1rem 2.5rem;
-  border: 2px solid var(--color-accent);
-  border-radius: 8px;
-  color: var(--color-accent);
-  font-size: 1.2rem;
-  font-weight: 600;
-  cursor: pointer;
-  text-decoration: none;
-  transition: background var(--duration-fast) var(--ease-in-out),
-              color var(--duration-fast) var(--ease-in-out),
-              transform var(--duration-fast) var(--ease-out-expo),
-              box-shadow var(--duration-fast) var(--ease-in-out);
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.cta-button:hover {
-  background: var(--color-accent);
-  color: var(--color-bg);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 28px rgba(134, 188, 37, 0.3);
-}
-
-.cta-button:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 3px;
-}
-
-.cta-button:active {
-  transform: translateY(0) scale(0.98);
-  box-shadow: 0 2px 12px rgba(134, 188, 37, 0.2);
-}
-
 /* ============================================================
    Slide 3: Concept + Case Study Layout
    ============================================================ */
@@ -1322,6 +1287,39 @@ body {
   min-width: 3.5em;
   text-align: center;
   white-space: nowrap;
+}
+
+/* CTA button on slide 10 */
+.cta-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.875rem 2rem;
+  border: 1.5px solid var(--color-accent);
+  border-radius: 8px;
+  color: var(--color-accent);
+  font-size: 1rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all var(--duration-normal) var(--ease-in-out);
+}
+.cta-button:hover {
+  background: var(--color-accent);
+  color: var(--color-bg);
+}
+.cta-button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.cta-button:active {
+  transform: scale(0.98);
+}
+.cta-arrow {
+  display: inline-block;
+  transition: transform var(--duration-fast) var(--ease-out-expo);
+}
+.cta-button:hover .cta-arrow {
+  transform: translateX(4px);
 }
 </style>
 </head>
@@ -2390,6 +2388,12 @@ body {
   <p class="slide-subtitle" style="text-align:center;margin:2rem auto;">
     从"基础不明、层级不清、场景难选"到"差距可见、路径可循、投入可控"
   </p>
+  <div style="text-align:center;margin-top:3rem;">
+    <a href="contact.html?service=ai-maturity-assessment" class="cta-button">
+      预约咨询，获取专属评估方案
+      <span class="cta-arrow" aria-hidden="true">&rarr;</span>
+    </a>
+  </div>
 </section>
 
 <script>
