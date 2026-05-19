@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>预约咨询 — AI 应用成熟度评估</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --color-bg: #000000;
+  --color-bg-card: #1A1A1A;
+  --color-text: #FFFFFF;
+  --color-text-secondary: #D0D0CE;
+  --color-text-muted: #A7A8AA;
+  --color-accent: #86BC25;
+  --color-border: rgba(255,255,255,0.12);
+  --color-error: #EF4444;
+  --font-cn: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-normal: 250ms;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--font-cn);
+  background: var(--color-bg);
+  color: var(--color-text);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.card {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 2.5rem 2rem;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+
+.service-tag {
+  display: inline-block;
+  font-size: 0.75rem;
+  color: var(--color-accent);
+  letter-spacing: 0.05em;
+  margin-bottom: 0.75rem;
+}
+
+.card h1 {
+  font-size: 1.375rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 0.5rem;
+}
+
+.card .desc {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  margin-bottom: 1.75rem;
+  line-height: 1.5;
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-group label {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 0.375rem;
+}
+
+.form-group label .required {
+  color: var(--color-accent);
+}
+
+.form-group input {
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text);
+  font-size: 0.875rem;
+  font-family: var(--font-cn);
+  transition: border-color var(--duration-normal) var(--ease-out-expo);
+  outline: none;
+}
+
+.form-group input:focus {
+  border-color: var(--color-accent);
+}
+
+.form-group input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.form-group input::placeholder {
+  color: #555;
+}
+
+.form-row {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.form-row .form-group {
+  flex: 1;
+}
+
+.btn-submit {
+  width: 100%;
+  padding: 0.75rem;
+  background: var(--color-accent);
+  color: #000;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  font-family: var(--font-cn);
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-out-expo);
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn-submit:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.btn-submit:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.btn-submit:disabled {
+  background: #555;
+  color: #999;
+  cursor: not-allowed;
+}
+
+.spinner {
+  display: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(0,0,0,0.3);
+  border-top-color: #000;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+.btn-submit.loading .spinner {
+  display: inline-block;
+}
+
+.btn-submit.loading .btn-text {
+  display: none;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.error-msg {
+  color: var(--color-error);
+  font-size: 0.8125rem;
+  text-align: center;
+  margin-top: 0.75rem;
+  opacity: 0;
+  transition: opacity var(--duration-normal) var(--ease-out-expo);
+}
+
+.error-msg.visible {
+  opacity: 1;
+}
+
+.privacy {
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+  text-align: center;
+  margin-top: 1rem;
+  line-height: 1.4;
+}
+
+.privacy a {
+  color: var(--color-text-secondary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Success view */
+#successView {
+  display: none;
+  text-align: center;
+}
+
+#successView .checkmark {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.25rem;
+}
+
+#successView .checkmark::after {
+  content: '';
+  display: block;
+  width: 14px;
+  height: 24px;
+  border: solid #000;
+  border-width: 0 3px 3px 0;
+  transform: rotate(45deg) translateY(-2px);
+}
+
+#successView h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+#successView p {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+@media (max-width: 480px) {
+  body {
+    padding: 1rem;
+    align-items: flex-start;
+    padding-top: 2rem;
+  }
+
+  .card {
+    padding: 1.5rem 1.25rem;
+  }
+
+  .form-row {
+    flex-direction: column;
+    gap: 0;
+  }
+}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <!-- Form view -->
+  <div id="formView">
+    <div class="service-tag" id="serviceTag"></div>
+    <h1>预约咨询</h1>
+    <p class="desc">留下联系方式，我们的顾问团队将尽快与您联系，提供专属评估方案。</p>
+
+    <form id="contactForm">
+      <input type="hidden" name="access_key" value="daa7d66b-522c-4be2-85f9-31657410567d">
+      <input type="hidden" name="subject" value="新咨询意向 - AI 成熟度评估">
+      <input type="hidden" name="from_name" value="AI 成熟度评估">
+      <input type="hidden" name="service" id="serviceField">
+      <input type="hidden" name="redirect" value="false">
+
+      <div class="form-group">
+        <label for="organization">机构名称 <span class="required">*</span></label>
+        <input type="text" id="organization" name="organization" placeholder="请输入机构全称" required>
+      </div>
+
+      <div class="form-group">
+        <label for="department">部门</label>
+        <input type="text" id="department" name="department" placeholder="合规部 / 风险部 / 反洗钱中心">
+      </div>
+
+      <div class="form-group">
+        <label for="name">联系人 <span class="required">*</span></label>
+        <input type="text" id="name" name="name" placeholder="请输入您的姓名" required>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="phone">手机号</label>
+          <input type="tel" id="phone" name="phone" placeholder="13800138000" pattern="1[3-9]\d{9}">
+        </div>
+        <div class="form-group">
+          <label for="email">电子邮箱 <span class="required">*</span></label>
+          <input type="email" id="email" name="email" placeholder="name@example.com" required>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-submit" id="submitBtn">
+        <span class="spinner"></span>
+        <span class="btn-text">提交</span>
+      </button>
+    </form>
+
+    <div class="error-msg" id="errorMsg" aria-live="polite">提交失败，请稍后重试</div>
+
+    <p class="privacy">提交即表示您同意我们收集上述信息用于服务咨询。我们不会将您的信息用于其他目的或与第三方共享。</p>
+  </div>
+
+  <!-- Success view -->
+  <div id="successView" aria-live="polite">
+    <div class="checkmark"></div>
+    <h2>提交成功</h2>
+    <p>感谢您的关注，我们的顾问团队将在 3 个工作日内与您联系。</p>
+  </div>
+</div>
+
+<script>
+(function() {
+  const params = new URLSearchParams(window.location.search);
+  const serviceKey = params.get('service') || '';
+
+  const serviceMap = {
+    'ai-maturity-assessment': 'AI 应用成熟度评估',
+  };
+
+  const serviceName = serviceMap[serviceKey] || '咨询服务';
+
+  document.getElementById('serviceField').value = serviceName;
+  document.getElementById('serviceTag').textContent = serviceName;
+
+  document.getElementById('contactForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const form = e.target;
+    const phone = document.getElementById('phone');
+    if (phone.value && !/^1[3-9]\d{9}$/.test(phone.value)) {
+      phone.focus();
+      return;
+    }
+
+    const btn = document.getElementById('submitBtn');
+    btn.classList.add('loading');
+    btn.disabled = true;
+
+    const fields = form.querySelectorAll('input:not([type="hidden"])');
+    fields.forEach(function(el) { el.disabled = true; });
+
+    fetch('https://api.web3forms.com/submit', {
+      method: 'POST',
+      body: new FormData(form)
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      if (data.success) {
+        document.getElementById('formView').style.display = 'none';
+        document.getElementById('successView').style.display = 'block';
+      } else {
+        throw new Error(data.message || '提交失败，请稍后重试');
+      }
+    })
+    .catch(function(err) {
+      const errorMsg = document.getElementById('errorMsg');
+      errorMsg.textContent = err.message || '提交失败，请稍后重试';
+      errorMsg.classList.add('visible');
+
+      btn.classList.remove('loading');
+      btn.disabled = false;
+      fields.forEach(function(el) { el.disabled = false; });
+    });
+  });
+})();
+</script>
+
+</body>
+</html>
