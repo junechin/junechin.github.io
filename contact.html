@@ -347,12 +347,14 @@ body {
     btn.classList.add('loading');
     btn.disabled = true;
 
+    const data = new FormData(form);
+
     const fields = form.querySelectorAll('input:not([type="hidden"])');
     fields.forEach(function(el) { el.disabled = true; });
 
     fetch('https://api.web3forms.com/submit', {
       method: 'POST',
-      body: new FormData(form)
+      body: data
     })
     .then(function(res) { return res.json(); })
     .then(function(data) {
